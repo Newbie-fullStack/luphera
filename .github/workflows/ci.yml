@@ -67,7 +67,10 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        # npm ci can skip platform-specific optional bindings (npm/cli#4828),
+        # which breaks Rolldown on Linux. npm install keeps the lockfile in sync
+        # and resolves the binding for the runner platform.
+        run: npm install --include=optional --no-audit --no-fund
 
       - name: Lint
         run: npm run lint
