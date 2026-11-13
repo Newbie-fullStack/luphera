@@ -1,5 +1,7 @@
 # Luphéra
 
+[![CI](https://github.com/Newbie-fullStack/luphera/actions/workflows/ci.yml/badge.svg)](https://github.com/Newbie-fullStack/luphera/actions/workflows/ci.yml)
+
 Maison marocaine d'eaux de parfum. Monorepo de la boutique : API Laravel 12, storefront React 19, MySQL 8.
 
 > **État : phase 0 — fondations.** Le design system est complet, le catalogue et le parcours d'achat arrivent aux phases suivantes. Les prix, stocks et avis affichés sont des données de démonstration (`seed`) et ne doivent pas être présentés comme réels.
