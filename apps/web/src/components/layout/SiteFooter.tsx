@@ -32,13 +32,13 @@ export function SiteFooter() {
   return (
     <footer aria-label={t('footer.label')} className="border-t border-ligne bg-nuit pb-[calc(56px+env(safe-area-inset-bottom,0px))] pt-14">
       <div className="gutter grid gap-12">
-        <div className="flex flex-wrap items-start justify-between gap-10">
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start lg:gap-12">
           <div className="grid max-w-sm gap-3">
             <p className="font-display text-[19px] tracking-[.34em] text-ivoire">LUPHÉRA</p>
             <p className="text-sm leading-relaxed text-brume">{t('brand.tagline')}</p>
           </div>
 
-          <div className="grid flex-1 grid-cols-2 gap-10 sm:grid-cols-3 lg:max-w-xl">
+          <div className="grid min-w-0 grid-cols-2 gap-8 sm:grid-cols-3">
             {columns.map((column) => (
               <div key={column.titleKey} className="grid content-start gap-3">
                 <p className="text-[11px] font-medium uppercase tracking-[.28em] text-or">

@@ -104,7 +104,7 @@ Règles structurantes :
 | `make build-web` | Build de production du storefront |
 | `make screens` | Régénère `docs/screens/` (serveur de preview sur 4173) |
 
-Côté web : `npm run dev`, `npm run build`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run test:run`, `npm run format`.
+Côté web : `npm run dev`, `npm run build`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run test:run`, `npm run test:smoke` (serveur de preview requis), `npm run format`.
 Côté API : `php artisan test`, `vendor/bin/pint`, `vendor/bin/phpstan analyse`.
 
 ## Comptes de test
@@ -139,6 +139,7 @@ Le téléphone est l'identifiant de connexion. Les autres rôles (`manager`, `su
 | Web lint | `npm run lint` | vert |
 | Web types | `npm run typecheck` | vert |
 | Web build | `npm run build` | vert |
+| Web smoke (routes, console, débordement) | `npm run test:smoke` | 10/10 vert |
 
 La CI GitHub Actions (`.github/workflows/ci.yml`) rejoue ces étapes sur PHP 8.3 et Node 24, valide `docker compose config` et vérifie les préfixes de commit conventionnels sur les pull requests.
 

@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "@luphera/web",
   "private": true,
   "version": "0.1.0",
@@ -15,7 +15,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest",
-    "test:run": "vitest run --coverage"
+    "test:run": "vitest run --coverage",
+    "test:smoke": "node scripts/audit.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^7.0.6",
@@ -60,3 +61,4 @@
     "vitest": "^5.1.0"
   }
 }
+

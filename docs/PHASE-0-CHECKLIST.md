@@ -31,6 +31,7 @@ Critère du brief : `make up` démarre tout, la CI est verte, `/design-system` a
 | Rendu desktop 1440 | capture Playwright | conforme à la référence |
 | Rendu mobile 390 | capture Playwright | conforme à la référence |
 | Mouvement réduit | captures avec `reducedMotion: 'reduce'` | contenu visible, sans animation |
+| Smoke routes desktop et mobile | `npm run test:smoke` | 10/10, aucune erreur console, aucun débordement |
 
 ## Non vérifié localement
 

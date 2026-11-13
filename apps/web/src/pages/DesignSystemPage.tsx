@@ -236,7 +236,10 @@ export function DesignSystemPage() {
         >
           <div className="grid gap-2.5">
             {spacing.map((value) => (
-              <div key={value} className="grid grid-cols-[70px_1fr] items-center gap-4 text-[13px] text-brume">
+              <div
+                key={value}
+                className="grid grid-cols-[70px_minmax(0,1fr)] items-center gap-4 text-[13px] text-brume"
+              >
                 <span>{value} px</span>
                 <span
                   aria-hidden="true"
