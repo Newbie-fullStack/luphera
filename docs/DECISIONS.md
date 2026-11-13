@@ -46,6 +46,7 @@ Chaque ligne documente un choix et sa justification. Une décision qui change es
 | 28 | En-têtes de sécurité posés par un middleware | HSTS, `nosniff`, `frame-ancestors` et `Referrer-Policy` sont garantis même si un proxy en oublie. |
 | 29 | CI : API, web, `docker compose config`, messages de commit | Les trois surfaces qui peuvent casser un déploiement sont vérifiées à chaque push. |
 | 30 | Pas de Sentry ni d'audit de dépendances en phase 0 | Réservés à la phase 7 (observabilité et durcissement) pour ne pas figer des clés absentes. |
+| 31 | CI : installation explicite de `@rolldown/binding-linux-x64-gnu` | `npm ci`/`npm install` sautent parfois les bindings optionnels de Rolldown sur Linux (npm/cli#4828), ce qui empêche Vitest de démarrer. |
 
 ## Écarts assumés
 

@@ -72,6 +72,13 @@ jobs:
         # and resolves the binding for the runner platform.
         run: npm install --include=optional --no-audit --no-fund
 
+      - name: Ensure Rolldown native binding
+        # The optional binding is still skipped on some npm versions; install the
+        # Linux x64 binary explicitly so Vitest can start.
+        run: |
+          VERSION=$(node -p "require('rolldown/package.json').version")
+          npm install --no-save --no-audit --no-fund "@rolldown/binding-linux-x64-gnu@$VERSION"
+
       - name: Lint
         run: npm run lint
 
