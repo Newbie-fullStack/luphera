@@ -1,0 +1,16 @@
+{
+  "name": "luphera",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Luphéra — maison marocaine d'eaux de parfum. Monorepo.",
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm --workspace @luphera/web run dev",
+    "build": "npm --workspace @luphera/web run build",
+    "lint": "npm --workspace @luphera/web run lint",
+    "test": "npm --workspace @luphera/web run test:run",
+    "typecheck": "npm --workspace @luphera/web run typecheck"
+  }
+}

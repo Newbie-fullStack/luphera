@@ -1,0 +1,280 @@
+{
+  "brand": {
+    "name": "Luphéra",
+    "tagline": "Avancer sans bruit, laisser une trace d'or.",
+    "home": "Accueil Luphéra"
+  },
+  "nav": {
+    "label": "Navigation principale",
+    "maison": "La maison",
+    "shop": "Boutique",
+    "story": "Histoire",
+    "shipping": "Livraison",
+    "contact": "Contact",
+    "designSystem": "Design system",
+    "cart": "Panier",
+    "checkout": "Commande",
+    "account": "Compte",
+    "openCart": "Ouvrir le panier",
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu"
+  },
+  "common": {
+    "skipToContent": "Aller au contenu principal",
+    "close": "Fermer",
+    "loading": "Chargement",
+    "backHome": "Retour à l'accueil",
+    "currency": "MAD",
+    "copied": "Copié"
+  },
+  "home": {
+    "eyebrow": "Maison marocaine de parfum",
+    "title": "Avancer sans bruit, laisser une trace d'or.",
+    "lead": "Deux signatures, un coffret. Des eaux de parfum composées pour durer, portées comme une présence plutôt qu'un aveu.",
+    "bottleAlt": "Flacon Luphéra Noir, verre noir et or",
+    "heroNote": "Eau de parfum · 30, 50 et 100 ml",
+    "scrollCue": "Descendre",
+    "ctaShop": "Découvrir la boutique",
+    "ctaStory": "Lire la maison",
+    "principlesEyebrow": "La règle de la maison",
+    "principlesTitle": "Trois gestes, rien de plus.",
+    "principles": {
+      "instinct": {
+        "title": "Instinct",
+        "body": "Le loup avance sans bruit. Peu de mots, des gestes lents, aucun effet qui crie."
+      },
+      "gold": {
+        "title": "Or rare",
+        "body": "L'or marque l'essentiel : un titre, un bouton, un filet. Un seul point d'or fort par écran."
+      },
+      "slowness": {
+        "title": "Lenteur",
+        "body": "Tout mouvement dure au moins 400 ms et suit la courbe Luxe. Rien ne claque, tout se pose."
+      }
+    },
+    "linesEyebrow": "Deux signatures",
+    "linesTitle": "Un même geste, deux présences.",
+    "linesLead": "Le verre noir pour l'homme, la lueur rose pour la femme. Le même flacon, deux lumières.",
+    "homme": {
+      "title": "Ligne Homme",
+      "body": "Boisé cuiré et ambré épicé. Une trace sombre, tenue, sans excès.",
+      "cta": "Voir la ligne Homme"
+    },
+    "femme": {
+      "title": "Ligne Femme",
+      "body": "Floral vanillé et poudré musqué. Une lumière douce qui reste sur la peau.",
+      "cta": "Voir la ligne Femme"
+    },
+    "dsEyebrow": "Design system",
+    "dsTitle": "La charte, à ciel ouvert.",
+    "dsLead": "Couleurs, typographie, composants et mouvement : les règles qui gardent chaque page noire, dorée et lente.",
+    "dsCta": "Ouvrir le design system"
+  },
+  "cart": {
+    "title": "Votre panier",
+    "empty": "Votre panier est vide.",
+    "emptyHint": "Les flacons arrivent avec la collection.",
+    "continue": "Continuer la découverte",
+    "subtotal": "Sous-total",
+    "shipping": "Livraison",
+    "shippingFree": "Offerte",
+    "checkout": "Passer commande",
+    "remove": "Retirer {{name}}",
+    "decrease": "Retirer un",
+    "increase": "Ajouter un",
+    "quantity": "Quantité"
+  },
+  "shop": {
+    "eyebrow": "Boutique",
+    "title": "La collection",
+    "lead": "Six signatures, trois contenances, deux lignes. Le catalogue sera relié à la base à la phase 1.",
+    "empty": "La collection se dévoile bientôt.",
+    "emptyHint": "Les six premières signatures seront disponibles ici.",
+    "badge": "Collection à venir",
+    "filters": "Filtres",
+    "search": "Rechercher",
+    "searchPlaceholder": "Nom, famille, note…",
+    "sort": "Trier",
+    "emptyAction": "Revenir à l'accueil"
+  },
+  "placeholder": {
+    "eyebrow": "Page en préparation",
+    "body": "Cette page sera livrée dans une prochaine phase. Le contenu réel remplacera ce texte.",
+    "back": "Retour à l'accueil"
+  },
+  "notFound": {
+    "eyebrow": "Erreur 404",
+    "title": "Cette page n'existe pas.",
+    "body": "Le lien est ancien ou mal orthographié. La maison reste ouverte.",
+    "back": "Retour à l'accueil"
+  },
+  "errors": {
+    "title": "Une erreur est survenue.",
+    "body": "Rechargez la page pour reprendre. Si le problème persiste, écrivez-nous.",
+    "reload": "Recharger la page"
+  },
+  "footer": {
+    "label": "Pied de page",
+    "house": "La maison",
+    "help": "Aide",
+    "legal": "Informations",
+    "story": "Notre histoire",
+    "designSystem": "Design system",
+    "shipping": "Livraison et retours",
+    "contact": "Nous écrire",
+    "terms": "Mentions légales",
+    "privacy": "Confidentialité",
+    "rights": "© {{year}} Luphéra. Tous droits réservés.",
+    "seedNotice": "Boutique en construction — données de démonstration."
+  },
+  "designSystem": {
+    "eyebrow": "Design system",
+    "title": "Charte Luphéra",
+    "lead": "Les règles qui gardent chaque page noire, dorée et lente. Les couleurs, la typographie, les composants et le mouvement de ce site viennent tous d'ici.",
+    "principles": {
+      "title": "Principes",
+      "subtitle": "Trois règles",
+      "instinct": {
+        "title": "Instinct",
+        "body": "Le loup avance sans bruit. Peu de mots, des gestes lents, aucun effet qui crie."
+      },
+      "gold": {
+        "title": "Or rare",
+        "body": "L'or marque l'essentiel : un titre, un bouton, un filet. Un seul point d'or fort par écran."
+      },
+      "slowness": {
+        "title": "Lenteur",
+        "body": "Tout mouvement dure au moins 400 ms et suit la courbe Luxe. Rien ne claque, tout se pose."
+      }
+    },
+    "colors": {
+      "title": "Couleurs",
+      "subtitle": "Cliquer pour copier",
+      "copyLabel": "Copier la couleur {{name}}",
+      "gradient": "Dégradé or, utilisé pour le mot-symbole et les boutons",
+      "names": {
+        "nuit": { "name": "Nuit", "usage": "Fond de page" },
+        "obsidienne": { "name": "Obsidienne", "usage": "Sections et surfaces" },
+        "charbon": { "name": "Charbon", "usage": "Cartes et champs" },
+        "or": { "name": "Or Luphéra", "usage": "Accent, filets, boutons" },
+        "orClair": { "name": "Or clair", "usage": "Reflets et survol" },
+        "orProfond": { "name": "Or profond", "usage": "Ombres du dégradé" },
+        "ivoire": { "name": "Ivoire", "usage": "Titres" },
+        "texte": { "name": "Texte", "usage": "Corps de texte" },
+        "brume": { "name": "Brume", "usage": "Texte secondaire" },
+        "rose": { "name": "Rose Aurore", "usage": "Ligne Femme" },
+        "err": { "name": "Erreur", "usage": "Champs en erreur" }
+      }
+    },
+    "typography": {
+      "title": "Typographie",
+      "subtitle": "Marcellus · Jost",
+      "wordmark": { "label": "Mot-symbole", "note": "Marcellus, tracking 0,06 em", "sample": "LUPHÉRA" },
+      "heading": {
+        "label": "Titre",
+        "note": "Marcellus, 34 à 64 px",
+        "sample": "Taillé dans le verre"
+      },
+      "subheading": {
+        "label": "Sous-titre",
+        "note": "Marcellus, 24 à 34 px",
+        "sample": "Deux signatures, un coffret"
+      },
+      "body": {
+        "label": "Corps",
+        "note": "Jost 300, 17 px, interligne 1,7",
+        "sample": "Une nouvelle maison née d'un instinct : avancer sans bruit, laisser une trace d'or."
+      },
+      "label": { "label": "Label", "note": "Jost 500, 12 px, tracking 0,32 em", "sample": "Eau de parfum" }
+    },
+    "spacing": {
+      "title": "Espacement et forme",
+      "subtitle": "Base 8",
+      "radius": "Rayon",
+      "radiusValue": "0 partout. Les angles restent nets, comme le verre taillé.",
+      "lines": "Filets",
+      "linesValue": "1 px, or à 22 % pour séparer, or à 55 % pour les contours actifs.",
+      "focus": "Focus",
+      "focusValue": "Contour or clair de 2 px, décalé de 3 px."
+    },
+    "components": {
+      "title": "Composants",
+      "subtitle": "États réels",
+      "buttons": "Boutons",
+      "primary": "Ajouter au panier",
+      "secondary": "Découvrir",
+      "disabled": "Indisponible",
+      "learnMore": "En savoir plus",
+      "choices": "Choix",
+      "chipsLabel": "Univers",
+      "homme": "Homme",
+      "femme": "Femme",
+      "mixte": "Mixte",
+      "tagNew": "Nouveau",
+      "tagLimited": "Édition limitée",
+      "tagWomen": "Ligne Femme",
+      "field": "Champ",
+      "emailLabel": "Votre e-mail",
+      "emailPlaceholder": "prenom@exemple.com",
+      "emailHint": "Recevez les nouveautés en avant-première.",
+      "subscribe": "S'inscrire"
+    },
+    "motion": {
+      "title": "Mouvement",
+      "subtitle": "Courbe Luxe",
+      "lux": "Luxe · .22 .61 .12 1",
+      "standard": "Standard · .4 0 .2 1",
+      "linear": "Linéaire",
+      "replay": "Rejouer",
+      "durations": "Durées",
+      "durationsValue": "Instantané 160 ms · Doux 420 ms · Cérémonie 1 200 ms",
+      "appearance": "Apparition",
+      "appearanceValue": "Les éléments se posent de 26 px vers leur place, sans jamais disparaître.",
+      "hover": "Survol",
+      "hoverValue": "Les cartes pivotent de 8 degrés au plus et captent un reflet doré.",
+      "progress": "Progression",
+      "progressValue": "Un filet or de 2 px en haut de page suit le défilement."
+    },
+    "shopComponents": {
+      "title": "Boutique",
+      "subtitle": "Composants",
+      "quantity": "Quantité",
+      "size": "Contenance",
+      "freeShipping": "Livraison offerte",
+      "freeShippingText": "Plus que {{amount}} pour la livraison offerte",
+      "errorField": "Champ en erreur",
+      "phone": "Téléphone",
+      "phoneError": "Entrez un numéro marocain valide."
+    },
+    "routes": {
+      "title": "Parcours",
+      "subtitle": "Routes et données",
+      "routesLabel": "Routes",
+      "routesValue": "/, /boutique, /produit/:slug, /commande, /commande/confirmation/:number, /compte, /histoire, /livraison, /contact, /mentions-legales, /design-system",
+      "products": "Produits",
+      "productsValue": "Servis par GET /api/v1/products. Aucun prix n'est écrit dans le front.",
+      "cart": "Panier",
+      "cartValue": "Panier serveur, fusionné à la connexion. Livraison 35 MAD, offerte dès 800 MAD. Code d'essai LUPHERA10.",
+      "order": "Commande",
+      "orderValue": "POST /api/v1/orders, idempotent via Idempotency-Key. Stock décrémenté dans la même transaction.",
+      "toProvide": "À fournir",
+      "toProvideValue": "Photos du flacon Femme, textes légaux, liste INCI, coordonnées réelles, clés API."
+    },
+    "scene": {
+      "title": "Scène 3D",
+      "subtitle": "Règles de la scène",
+      "camera": "Caméra",
+      "cameraValue": "Champ de 30°. Distance 8,4 au repos, 5,0 en gros plan sur le logo (6,6 sur mobile). Sur une fiche produit, le flacon est ancré à son cadre et se tourne à la main.",
+      "rotation": "Rotation",
+      "rotationValue": "Liée au défilement : un tour pour le flacon, deux tours pour la transformation. Le flacon finit toujours face au visiteur.",
+      "particles": "Particules",
+      "particlesValue": "16 000 points d'or (9 000 sur mobile) qui se déplacent d'une forme à l'autre en décalé.",
+      "light": "Lumière",
+      "lightValue": "Studio : softbox chaude à gauche, liseré or à droite, contre-jour froid. Verre épais, laque noire, or poli.",
+      "tint": "Teinte",
+      "tintValue": "La lueur de fond passe de l'or (Homme) au rose Aurore (Femme) pendant la transformation.",
+      "fallback": "Repli",
+      "fallbackValue": "Sans WebGL ou avec mouvement réduit, le flacon reste visible et sans animation."
+    }
+  }
+}

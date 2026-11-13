@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+apps/web/coverage/
+apps/api/public/build/
+apps/api/public/hot
+
+# Environment
+.env
+.env.*
+!.env.example
+!apps/**/.env.example
+
+# Local database
+apps/api/database/*.sqlite
+apps/api/database/*.sqlite-journal
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Tooling
+.phpunit.result.cache
+.phpunit.cache/
+apps/web/playwright-report/
+apps/web/test-results/
