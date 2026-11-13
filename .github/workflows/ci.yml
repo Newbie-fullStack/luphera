@@ -67,17 +67,22 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
 
       - name: Install dependencies
-        # npm ci can skip platform-specific optional bindings (npm/cli#4828),
-        # which breaks Rolldown on Linux. npm install keeps the lockfile in sync
-        # and resolves the binding for the runner platform.
+        # npm can skip platform-specific optional bindings (npm/cli#4828);
+        # the next step installs the Linux binaries explicitly.
         run: npm install --include=optional --no-audit --no-fund
 
-      - name: Ensure Rolldown native binding
-        # The optional binding is still skipped on some npm versions; install the
-        # Linux x64 binary explicitly so Vitest can start.
+      - name: Ensure native bindings
+        # npm skips platform-specific optional bindings on Linux (npm/cli#4828),
+        # which breaks Rolldown, Lightning CSS and Tailwind Oxide. Install the
+        # Linux x64 binaries explicitly, using the versions pinned in the lockfile.
         run: |
-          VERSION=$(node -p "require('rolldown/package.json').version")
-          npm install --no-save --no-audit --no-fund "@rolldown/binding-linux-x64-gnu@$VERSION"
+          ROLLDOWN=$(node -p "require('./package-lock.json').packages['node_modules/rolldown'].version")
+          LIGHTNING=$(node -p "require('./package-lock.json').packages['node_modules/lightningcss'].version")
+          OXIDE=$(node -p "require('./package-lock.json').packages['node_modules/@tailwindcss/oxide'].version")
+          npm install --no-save --no-audit --no-fund \
+            "@rolldown/binding-linux-x64-gnu@$ROLLDOWN" \
+            "lightningcss-linux-x64-gnu@$LIGHTNING" \
+            "@tailwindcss/oxide-linux-x64-gnu@$OXIDE"
 
       - name: Lint
         run: npm run lint
