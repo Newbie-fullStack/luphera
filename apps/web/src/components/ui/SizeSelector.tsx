@@ -3,6 +3,7 @@ import { formatMAD } from '@/lib/format';
 export interface SizeOption {
   id: string;
   ml: number;
+  label?: string;
   priceCents: number;
   available?: boolean;
 }
@@ -16,7 +17,7 @@ interface SizeSelectorProps {
 
 export function SizeSelector({ options, value, onChange, label }: SizeSelectorProps) {
   return (
-    <div role="radiogroup" aria-label={label} className="grid gap-2 sm:grid-cols-3">
+    <div role="radiogroup" aria-label={label} className="grid grid-cols-3 gap-2">
       {options.map((option) => {
         const checked = option.id === value;
 
@@ -30,7 +31,7 @@ export function SizeSelector({ options, value, onChange, label }: SizeSelectorPr
             className="size-option disabled:cursor-not-allowed disabled:opacity-40"
             onClick={() => onChange(option.id)}
           >
-            <b>{option.ml} ml</b>
+            <b>{option.label ?? `${option.ml} ml`}</b>
             <span>{formatMAD(option.priceCents)}</span>
           </button>
         );

@@ -1,7 +1,8 @@
 import { chromium } from '@playwright/test';
 
 const browser = await chromium.launch({ channel: 'chrome' });
-const routes = ['/', '/boutique', '/design-system', '/histoire', '/page-inconnue'];
+const base = process.env.AUDIT_BASE ?? 'http://127.0.0.1:4173';
+const routes = ['/', '/boutique', '/produit/luphera-noir', '/design-system', '/histoire', '/page-inconnue'];
 const sizes = [
   { width: 1440, height: 900 },
   { width: 390, height: 844 },
@@ -17,7 +18,7 @@ for (const size of sizes) {
     });
     page.on('pageerror', (error) => errors.push(error.message));
 
-    const response = await page.goto(`http://127.0.0.1:4173${route}`, { waitUntil: 'networkidle' });
+    const response = await page.goto(`${base}${route}`, { waitUntil: 'networkidle' });
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );

@@ -6,9 +6,17 @@ import { ButtonLink } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Reveal } from '@/components/ui/Reveal';
 import { Tag } from '@/components/ui/Tag';
+import { ProductCard } from '@/features/catalog/components/ProductCard';
+import { useProducts } from '@/features/catalog/useCatalog';
 
 export function HomePage() {
   const { t } = useTranslation();
+  const { data: catalogue } = useProducts({ per_page: 6 });
+
+  // Editorial selection, resolved against the live catalogue.
+  const selection = ['luphera-noir', 'luphera-aurore', 'coffret-duo']
+    .map((slug) => catalogue?.items.find((product) => product.slug === slug))
+    .filter((product): product is NonNullable<typeof product> => product !== undefined);
 
   const principles = ['instinct', 'gold', 'slowness'] as const;
 
@@ -132,6 +140,32 @@ export function HomePage() {
           </div>
         </Reveal>
       </section>
+
+      {selection.length > 0 ? (
+        <section className="border-t border-ligne">
+          <div className="gutter py-20">
+            <Reveal className="grid gap-10">
+              <div className="flex flex-wrap items-end justify-between gap-6">
+                <PageHeader
+                  eyebrow={t('home.selectionEyebrow')}
+                  title={t('home.selectionTitle')}
+                  as="h2"
+                />
+                <Link to="/boutique" className="lnk">
+                  {t('home.selectionCta')}
+                  <ArrowRight size={14} aria-hidden="true" />
+                </Link>
+              </div>
+
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {selection.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            </Reveal>
+          </div>
+        </section>
+      ) : null}
 
       <section className="border-t border-ligne bg-obsidienne">
         <div className="gutter flex flex-wrap items-end justify-between gap-8 py-20">

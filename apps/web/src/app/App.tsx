@@ -8,6 +8,9 @@ import { HomePage } from '@/pages/HomePage';
 const ShopPage = lazy(() =>
   import('@/pages/ShopPage').then((module) => ({ default: module.ShopPage })),
 );
+const ProductPage = lazy(() =>
+  import('@/pages/ProductPage').then((module) => ({ default: module.ProductPage })),
+);
 const DesignSystemPage = lazy(() =>
   import('@/pages/DesignSystemPage').then((module) => ({ default: module.DesignSystemPage })),
 );
@@ -37,7 +40,7 @@ export function App() {
         <Route element={<SiteLayout />}>
           <Route index element={<HomePage />} />
           <Route path="boutique" element={<ShopPage />} />
-          <Route path="produit/:slug" element={<PlaceholderPage titleKey="nav.shop" />} />
+          <Route path="produit/:slug" element={<ProductPage />} />
           <Route path="commande" element={<PlaceholderPage titleKey="nav.checkout" />} />
           <Route
             path="commande/confirmation/:number"

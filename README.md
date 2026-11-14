@@ -4,7 +4,7 @@
 
 Maison marocaine d'eaux de parfum. Monorepo de la boutique : API Laravel 12, storefront React 19, MySQL 8.
 
-> **État : phase 0 — fondations.** Le design system est complet, le catalogue et le parcours d'achat arrivent aux phases suivantes. Les prix, stocks et avis affichés sont des données de démonstration (`seed`) et ne doivent pas être présentés comme réels.
+> **État : phase 1 — catalogue.** Le design system et le catalogue sont livrés : boutique filtrable, fiche produit, recherche et coffrets reliés à la base. Les prix, stocks et descriptions affichés sont des données de démonstration (`seed`) et ne doivent pas être présentés comme réels.
 
 ## Sommaire
 
@@ -25,12 +25,14 @@ Prérequis : Docker Desktop (ou Docker Engine + Compose v2), `make`, ports 3306,
 ```bash
 cp .env.example .env          # facultatif : les valeurs par défaut du compose suffisent
 make up                       # construit et démarre MySQL, Redis, Meilisearch, MinIO, API, Horizon, scheduler, web
-make seed                     # rôles, permissions et compte admin local
+make seed                     # rôles, permissions, compte admin local et catalogue de démonstration
 ```
 
 | Service | URL |
 | --- | --- |
 | Storefront | http://localhost:5173 |
+| Boutique | http://localhost:5173/boutique |
+| Fiche produit | http://localhost:5173/produit/luphera-noir |
 | Design system | http://localhost:5173/design-system |
 | API | http://localhost:8000/api/v1 |
 | Meilisearch | http://localhost:7700 |
@@ -72,8 +74,9 @@ apps/
   web/            React 19 + TypeScript + Vite
     src/app/      routes et error boundary
     src/components/  layout, ui, three
-    src/lib/      api client, formatage, téléphone
-    src/pages/    pages publiques
+    src/features/ catalogue : types, API, hooks, cartes, filtres
+    src/lib/      api client, formatage, téléphone, debounce
+    src/pages/    pages publiques (accueil, boutique, fiche produit)
     src/styles/   tokens Tailwind 4 et composants CSS
     src/i18n/     ressources françaises (arabe en phase 7)
 docs/             DECISIONS.md, API.md, RUNBOOK.md, screens/
@@ -128,20 +131,20 @@ Le téléphone est l'identifiant de connexion. Les autres rôles (`manager`, `su
 - Polices auto-hébergées dans `apps/web/public/fonts/`.
 - Courbe unique : `cubic-bezier(.22,.61,.12,1)` (`--ease-lux`), durées ≥ 400 ms.
 - `prefers-reduced-motion` désactive animations et transitions.
-- Captures : `docs/screens/home-1440.png`, `home-390.png`, `design-system-1440.png`, `design-system-390.png`.
+- Captures : `docs/screens/home-1440.png`, `home-390.png`, `shop-1440.png`, `shop-390.png`, `product-1440.png`, `product-390.png`, `design-system-1440.png`, `design-system-390.png`.
 
 ## Tests et qualité
 
-| Suite | Commande | État phase 0 |
+| Suite | Commande | État phase 1 |
 | --- | --- | --- |
-| API (Pest) | `cd apps/api && php artisan test` | 22 tests verts |
+| API (Pest) | `cd apps/api && php artisan test` | 37 tests verts |
 | API style | `vendor/bin/pint --test` | vert |
 | API statique | `vendor/bin/phpstan analyse` | niveau 6, vert |
-| Web (Vitest) | `cd apps/web && npm run test:run` | 28 tests verts |
+| Web (Vitest) | `cd apps/web && npm run test:run` | 43 tests verts |
 | Web lint | `npm run lint` | vert |
 | Web types | `npm run typecheck` | vert |
 | Web build | `npm run build` | vert |
-| Web smoke (routes, console, débordement) | `npm run test:smoke` | 10/10 vert |
+| Web smoke (routes, console, débordement) | `npm run test:smoke` | 12/12 vert |
 
 La CI GitHub Actions (`.github/workflows/ci.yml`) rejoue ces étapes sur PHP 8.3 et Node 24, valide `docker compose config` et vérifie les préfixes de commit conventionnels sur les pull requests.
 
@@ -164,8 +167,8 @@ La CI GitHub Actions (`.github/workflows/ci.yml`) rejoue ces étapes sur PHP 8.3
 
 | Phase | Contenu | État |
 | --- | --- | --- |
-| 0 | Monorepo, Docker, CI, design system, décisions | en cours de validation |
-| 1 | Catalogue, seeders, API produits, boutique, fiche, recherche | à venir |
+| 0 | Monorepo, Docker, CI, design system, décisions | livrée |
+| 1 | Catalogue, seeders, API produits, boutique, fiche, recherche | livrée (catalogue de démonstration) |
 | 2 | Panier serveur, coupons, livraison, commande idempotente, stock | à venir |
 | 3 | Compte client, adresses, historique | à venir |
 | 4 | Administration (produits, commandes, stocks, coupons) | à venir |

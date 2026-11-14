@@ -31,7 +31,7 @@ export interface RequestOptions extends Omit<RequestInit, 'body'> {
   signal?: AbortSignal;
 }
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function requestEnvelope<T>(path: string, options: RequestOptions = {}): Promise<ApiEnvelope<T>> {
   const { body, headers, ...rest } = options;
   const url = `${API_URL}${path.startsWith('/') ? path : `/${path}`}`;
 
@@ -61,5 +61,20 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     );
   }
 
+  return payload;
+}
+
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const payload = await requestEnvelope<T>(path, options);
+
   return payload.data;
+}
+
+export async function apiRequestWithMeta<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<{ data: T; meta: Record<string, unknown> }> {
+  const payload = await requestEnvelope<T>(path, options);
+
+  return { data: payload.data, meta: payload.meta };
 }

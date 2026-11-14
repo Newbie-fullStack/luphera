@@ -47,12 +47,22 @@ Chaque ligne documente un choix et sa justification. Une décision qui change es
 | 29 | CI : API, web, `docker compose config`, messages de commit | Les trois surfaces qui peuvent casser un déploiement sont vérifiées à chaque push. |
 | 30 | Pas de Sentry ni d'audit de dépendances en phase 0 | Réservés à la phase 7 (observabilité et durcissement) pour ne pas figer des clés absentes. |
 | 31 | CI : installation explicite des bindings natifs Linux (Rolldown, Lightning CSS, Tailwind Oxide) | `npm ci`/`npm install` sautent parfois les dépendances optionnelles de plateforme (npm/cli#4828), ce qui empêche Vitest et le build de démarrer. |
+| 32 | Domaine `App\Domain\Catalog` (Enums, Models, Queries) ; contrôleurs fins, `FormRequest` et ressources dédiées | La logique de filtre et de tri vit dans `ProductIndexQuery`, testable seule ; les contrôleurs ne font que valider, interroger et sérialiser. |
+| 33 | Recherche phase 1 en SQL indexé (`LIKE` sur nom, famille, tag, descriptions, notes) dans `ProductIndexQuery` | Aucun service externe à installer pour la phase 1 ; Meilisearch/Scout prend le relais en phase 6 sans changer la forme de la réponse. |
+| 34 | Pagination par curseur avec tri déterministe (`position,id`, `from_price_cents,id`, `created_at,id`) | Évite les doublons et les sauts d'éléments quand le catalogue change entre deux pages, contrairement à `offset`. |
+| 35 | Ressources JSON en classes finales avec `make()` statique plutôt qu'`JsonResource` | Les tableaux typés restent lisibles par PHPStan niveau 6 ; `JsonResource` impose des types `mixed` coûteux à annoter. |
+| 36 | Modèles catalogue avec la propriété `$casts` et non la méthode `casts()` | Larastan 3 ne résout pas encore les casts d'enum déclarés par méthode ; la propriété garde l'analyse statique exacte. |
+| 37 | Le public ne voit que `stock_status` (`in_stock`, `low_stock`, `out_of_stock`) | Le stock exact est une donnée commerciale ; le front n'en a pas besoin pour afficher la disponibilité. |
+| 38 | `products.is_demo` signale le catalogue semé ; le front affiche un avertissement discret | Aucun prix, stock ou description de démonstration ne doit passer pour une affirmation réelle. |
+| 39 | `variants_count` exposé dans la fiche résumée | Permet d'afficher « À partir de » uniquement quand plusieurs contenances existent, sans requête supplémentaire. |
+| 40 | Filtres de boutique synchronisés dans l'URL (`ligne`, `famille`, `note`, `prix_min`, `prix_max`, `q`, `tri`) | Les liens sont partageables, le retour navigateur restaure l'état, et le front n'invente pas un second état local. |
+| 41 | Sélection d'accueil curatée par slug (`noir`, `aurore`, `coffret-duo`) dans le catalogue réel | Le titre « Deux signatures. Un coffret. » doit correspondre aux cartes affichées ; l'ordre éditorial ne dépend pas du tri par défaut. |
 
 ## Écarts assumés
 
 | Écart | Raison | Suite |
 | --- | --- | --- |
-| `make up` non exécuté sur le poste de développement | Docker n'y est pas installé ; le compose est validé par `docker compose config` en CI. | À valider sur une machine Docker avant la phase 1. |
+| `make up` non exécuté sur le poste de développement | Docker n'y est pas installé ; le compose est validé par `docker compose config` en CI. | À valider sur une machine Docker avant la phase 2. |
 | Horizon non démarrable sous Windows | Extensions `pcntl` et `posix` absentes du PHP local. | Fonctionne dans l'image Docker. |
-| Couverture web ~46 % | La phase 0 teste les fondations ; l'objectif de 80 % porte sur les domaines panier et commandes. | Phase 2. |
+| Couverture web ~54 % | La phase 1 teste les composants catalogue ; l'objectif de 80 % porte sur les domaines panier et commandes. | Phase 2. |
 | Textes légaux, photos Femme, coordonnées | Non fournis par le client. | Marqués `[à compléter]`, jamais présentés comme définitifs. |
