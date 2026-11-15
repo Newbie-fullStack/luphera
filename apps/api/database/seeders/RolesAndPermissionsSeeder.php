@@ -39,6 +39,10 @@ class RolesAndPermissionsSeeder extends Seeder
             Permission::findOrCreate($permission, 'web');
         }
 
+        // syncPermissions() resolves names through the registrar cache, so it
+        // must be flushed again after the permissions have been created.
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
         $admin = Role::findOrCreate('admin', 'web');
         $manager = Role::findOrCreate('manager', 'web');
         $support = Role::findOrCreate('support', 'web');

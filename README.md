@@ -4,7 +4,7 @@
 
 Maison marocaine d'eaux de parfum. Monorepo de la boutique : API Laravel 12, storefront React 19, MySQL 8.
 
-> **État : phase 1 — catalogue.** Le design system et le catalogue sont livrés : boutique filtrable, fiche produit, recherche et coffrets reliés à la base. Les prix, stocks et descriptions affichés sont des données de démonstration (`seed`) et ne doivent pas être présentés comme réels.
+> **État : phase 2 — panier et commande.** Le catalogue, le panier serveur, les coupons, la livraison par ville et la commande sans compte sont livrés. Les prix, stocks, frais de livraison et le code `LUPHERA10` sont des données de démonstration (`seed`) et ne doivent pas être présentés comme réels.
 
 ## Sommaire
 
@@ -33,6 +33,8 @@ make seed                     # rôles, permissions, compte admin local et catal
 | Storefront | http://localhost:5173 |
 | Boutique | http://localhost:5173/boutique |
 | Fiche produit | http://localhost:5173/produit/luphera-noir |
+| Commande | http://localhost:5173/commande |
+| Suivi de commande | http://localhost:5173/suivi |
 | Design system | http://localhost:5173/design-system |
 | API | http://localhost:8000/api/v1 |
 | Meilisearch | http://localhost:7700 |
@@ -75,8 +77,10 @@ apps/
     src/app/      routes et error boundary
     src/components/  layout, ui, three
     src/features/ catalogue : types, API, hooks, cartes, filtres
+    src/features/cart/   panier : contexte, API, tiroir
+    src/features/orders/ commande : schéma, suivi, stockage du jeton
     src/lib/      api client, formatage, téléphone, debounce
-    src/pages/    pages publiques (accueil, boutique, fiche produit)
+    src/pages/    pages publiques (accueil, boutique, fiche, commande, suivi)
     src/styles/   tokens Tailwind 4 et composants CSS
     src/i18n/     ressources françaises (arabe en phase 7)
 docs/             DECISIONS.md, API.md, RUNBOOK.md, screens/
@@ -112,6 +116,15 @@ Règles structurantes :
 Côté web : `npm run dev`, `npm run build`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run test:run`, `npm run test:smoke` (serveur de preview requis), `npm run format`.
 Côté API : `php artisan test`, `vendor/bin/pint`, `vendor/bin/phpstan analyse`.
 
+Parcours d'achat complet (serveurs API et web démarrés, base fraîchement seedée) :
+
+```bash
+cd apps/api && php artisan migrate:fresh --seed
+cd apps/web && node scripts/journey.mjs   # JOURNEY_BASE pour changer d'origine (défaut : 5180)
+```
+
+Le script rejoue visiteur → fiche → panier → coupon → commande → confirmation → suivi, en 360 px et 1440 px, et vérifie l'absence de débordement horizontal et d'erreur console.
+
 ## Comptes de test
 
 Créés uniquement en `local` et `testing` par `RolesAndPermissionsSeeder`.
@@ -131,20 +144,21 @@ Le téléphone est l'identifiant de connexion. Les autres rôles (`manager`, `su
 - Polices auto-hébergées dans `apps/web/public/fonts/`.
 - Courbe unique : `cubic-bezier(.22,.61,.12,1)` (`--ease-lux`), durées ≥ 400 ms.
 - `prefers-reduced-motion` désactive animations et transitions.
-- Captures : `docs/screens/home-1440.png`, `home-390.png`, `shop-1440.png`, `shop-390.png`, `product-1440.png`, `product-390.png`, `design-system-1440.png`, `design-system-390.png`.
+- Captures : `docs/screens/home-1440.png`, `home-390.png`, `shop-1440.png`, `shop-390.png`, `product-1440.png`, `product-390.png`, `cart-1440.png`, `cart-390.png`, `checkout-1440.png`, `checkout-390.png`, `confirmation-1440.png`, `confirmation-390.png`, `tracking-1440.png`, `tracking-390.png`, `design-system-1440.png`, `design-system-390.png`.
 
 ## Tests et qualité
 
-| Suite | Commande | État phase 1 |
+| Suite | Commande | État phase 2 |
 | --- | --- | --- |
-| API (Pest) | `cd apps/api && php artisan test` | 37 tests verts |
+| API (Pest) | `cd apps/api && php artisan test` | 67 tests verts (325 assertions) |
 | API style | `vendor/bin/pint --test` | vert |
 | API statique | `vendor/bin/phpstan analyse` | niveau 6, vert |
-| Web (Vitest) | `cd apps/web && npm run test:run` | 43 tests verts |
+| Web (Vitest) | `cd apps/web && npm run test:run` | 78 tests verts |
 | Web lint | `npm run lint` | vert |
 | Web types | `npm run typecheck` | vert |
 | Web build | `npm run build` | vert |
 | Web smoke (routes, console, débordement) | `npm run test:smoke` | 12/12 vert |
+| Parcours d'achat | `node scripts/journey.mjs` | 20/20 vert (360 et 1440) |
 
 La CI GitHub Actions (`.github/workflows/ci.yml`) rejoue ces étapes sur PHP 8.3 et Node 24, valide `docker compose config` et vérifie les préfixes de commit conventionnels sur les pull requests.
 
@@ -162,6 +176,8 @@ La CI GitHub Actions (`.github/workflows/ci.yml`) rejoue ces étapes sur PHP 8.3
 - Horizon, les workers de queue et le scheduler ne tournent pas sous Windows.
 - Meilisearch, MinIO et Redis ne sont pas nécessaires aux tests : SQLite, cache array et session array suffisent.
 - Aucune passerelle de paiement, aucun envoi d'e-mail réel, aucun texte légal définitif : ces éléments sont marqués `[à compléter]`.
+- Le parcours d'achat consomme du stock : relancer `php artisan migrate:fresh --seed` avant de rejouer `scripts/journey.mjs` ou `scripts/screens.mjs`.
+- Les frais de livraison par ville et le coupon `LUPHERA10` viennent de `CommerceSeeder` : ce sont des valeurs provisoires, à remplacer par le contrat transporteur et les conditions réelles.
 
 ## Feuille de route
 
@@ -169,7 +185,7 @@ La CI GitHub Actions (`.github/workflows/ci.yml`) rejoue ces étapes sur PHP 8.3
 | --- | --- | --- |
 | 0 | Monorepo, Docker, CI, design system, décisions | livrée |
 | 1 | Catalogue, seeders, API produits, boutique, fiche, recherche | livrée (catalogue de démonstration) |
-| 2 | Panier serveur, coupons, livraison, commande idempotente, stock | à venir |
+| 2 | Panier serveur, coupons, livraison, commande idempotente, stock | livrée (frais et coupon de démonstration) |
 | 3 | Compte client, adresses, historique | à venir |
 | 4 | Administration (produits, commandes, stocks, coupons) | à venir |
 | 5 | Contenus, pages maison, livraison, contact | à venir |

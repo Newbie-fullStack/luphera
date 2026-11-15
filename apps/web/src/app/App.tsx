@@ -11,6 +11,15 @@ const ShopPage = lazy(() =>
 const ProductPage = lazy(() =>
   import('@/pages/ProductPage').then((module) => ({ default: module.ProductPage })),
 );
+const CheckoutPage = lazy(() =>
+  import('@/pages/CheckoutPage').then((module) => ({ default: module.CheckoutPage })),
+);
+const ConfirmationPage = lazy(() =>
+  import('@/pages/ConfirmationPage').then((module) => ({ default: module.ConfirmationPage })),
+);
+const TrackingPage = lazy(() =>
+  import('@/pages/TrackingPage').then((module) => ({ default: module.TrackingPage })),
+);
 const DesignSystemPage = lazy(() =>
   import('@/pages/DesignSystemPage').then((module) => ({ default: module.DesignSystemPage })),
 );
@@ -41,11 +50,9 @@ export function App() {
           <Route index element={<HomePage />} />
           <Route path="boutique" element={<ShopPage />} />
           <Route path="produit/:slug" element={<ProductPage />} />
-          <Route path="commande" element={<PlaceholderPage titleKey="nav.checkout" />} />
-          <Route
-            path="commande/confirmation/:number"
-            element={<PlaceholderPage titleKey="nav.checkout" />}
-          />
+          <Route path="commande" element={<CheckoutPage />} />
+          <Route path="commande/confirmation/:number" element={<ConfirmationPage />} />
+          <Route path="suivi" element={<TrackingPage />} />
           <Route path="compte" element={<PlaceholderPage titleKey="nav.account" />} />
           <Route path="histoire" element={<PlaceholderPage titleKey="nav.story" />} />
           <Route path="livraison" element={<PlaceholderPage titleKey="nav.shipping" />} />

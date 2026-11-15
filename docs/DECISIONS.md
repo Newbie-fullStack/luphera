@@ -58,11 +58,35 @@ Chaque ligne documente un choix et sa justification. Une décision qui change es
 | 40 | Filtres de boutique synchronisés dans l'URL (`ligne`, `famille`, `note`, `prix_min`, `prix_max`, `q`, `tri`) | Les liens sont partageables, le retour navigateur restaure l'état, et le front n'invente pas un second état local. |
 | 41 | Sélection d'accueil curatée par slug (`noir`, `aurore`, `coffret-duo`) dans le catalogue réel | Le titre « Deux signatures. Un coffret. » doit correspondre aux cartes affichées ; l'ordre éditorial ne dépend pas du tri par défaut. |
 
+## Commerce (phase 2)
+
+| # | Décision | Justification |
+| --- | --- | --- |
+| 42 | Panier invité identifié par un jeton opaque ULID dans `X-Cart-Token`, renvoyé dans `meta.cart_token` | Aucun compte requis par le brief ; le jeton remplace la session sans exposer d'identifiant interne. |
+| 43 | Le jeton et la ville sont conservés en `localStorage` (`luphera.cart.token`, `luphera.cart.city`) | Un rechargement ou un retour plus tard retrouve le même panier ; `GET /cart` n'est appelé que si un jeton existe, donc un visiteur ne crée pas de panier vide. |
+| 44 | Tous les montants sont recalculés côté serveur (`PricingService`), jamais envoyés par le client | Un prix ou une remise venant du navigateur est une faille : le total affiché doit être exactement celui qui sera facturé. |
+| 45 | Livraison offerte au-dessus de 80 000 centimes, sinon tarif de la ville, sinon tarif forfaitaire | Reprend la règle du design de référence ; le seuil et le forfait vivent en base (`settings`), pas dans le code. |
+| 46 | Une ligne est plafonnée à 10 unités et à la quantité en stock | Évite les commandes de revendeur et les erreurs de stock ; le stepper du front reçoit `max_quantity` du serveur. |
+| 47 | Coupon `LUPHERA10` semé : 10 %, plafond 20 000 centimes, minimum 50 000, 500 usages, un par commande | Le parcours a besoin d'un code réel pour être testé ; le compteur `used_count` n'est incrémenté que dans la transaction de commande. |
+| 48 | Commande numérotée `LPH-YYMMDD-XXXX`, lignes figées (nom, SKU, prix) et adresse en JSON | Un changement de catalogue ne doit jamais réécrire une commande passée ; le numéro reste lisible au téléphone. |
+| 49 | `Idempotency-Key` unique et nullable sur `orders`, rejouée avant toute écriture | Un double clic ou un retry réseau renvoie la même commande sans décrémenter deux fois le stock. |
+| 50 | Stock décrémenté sous `lockForUpdate` dans la transaction, un `stock_movements` par changement | La survente est impossible même sous concurrence ; l'historique des mouvements rend les écarts auditables. |
+| 51 | Transitions de statut explicites (`pending → confirmed → …`) ; `cancelled`, `failed_delivery` et `returned` remettent en stock | Une commande annulée doit rendre les flacons ; les états terminaux refusent toute transition pour ne pas réécrire l'histoire. |
+| 52 | Suivi public protégé par `?token=`, `X-Order-Token` ou `?phone=` ; sinon `404` | Le numéro seul permettrait d'énumérer les commandes et de lire les adresses ; `404` ne confirme pas l'existence. |
+| 53 | `BusinessRuleException(errorCode, message, fields, status)` rendue dans l'enveloppe d'erreur | Les refus métier (stock, coupon, panier vide) portent un code stable et des champs, sans exception générique en 500. |
+| 54 | Le renderer de `BusinessRuleException` est enregistré avant le renderer `Throwable` | Laravel évalue les callbacks dans l'ordre d'enregistrement ; l'ordre inverse aurait transformé les refus métier en 500. |
+| 55 | Le schéma Zod du checkout est construit par `createCheckoutSchema(t)` | Aucun message français en dur dans le schéma ; les clés `checkout.errors.*` suivent la même règle i18n que le reste du front. |
+| 56 | Le jeton de suivi est gardé en `sessionStorage` (`luphera.order.<numéro>`) | La page de confirmation survit à un rechargement sans redemander le téléphone, et le jeton disparaît à la fermeture de l'onglet. |
+| 57 | Le bouton de commande est désactivé pendant l'envoi et la clé d'idempotence est créée par `useState` | Double soumission impossible côté interface ; `useState` évite la lecture de `ref` pendant le rendu que refuse le React Compiler. |
+| 58 | `useWatch` au lieu de `form.watch` pour la ville | Le lint React Compiler interdit `watch()` (fonction non mémoïsable) ; `useWatch` garde la synchronisation sans casser la mémoïsation. |
+| 59 | `ShippingProgress` reçoit ses libellés et un renderer de reste à payer | Le composant reste sans texte français en dur, donc réutilisable pour l'arabe et le RTL de la phase 7. |
+| 60 | `DatabaseSeeder` sans `WithoutModelEvents` ; cache des permissions vidé après leur création | Le trait désactivait le hook `creating` de `HasPublicId` (échec `users.public_id`) ; `syncPermissions` résout les noms via le cache du registrar. |
+
 ## Écarts assumés
 
 | Écart | Raison | Suite |
 | --- | --- | --- |
-| `make up` non exécuté sur le poste de développement | Docker n'y est pas installé ; le compose est validé par `docker compose config` en CI. | À valider sur une machine Docker avant la phase 2. |
+| `make up` non exécuté sur le poste de développement | Docker n'y est pas installé ; le compose est validé par `docker compose config` en CI. | À valider sur une machine Docker avant la phase 3. |
 | Horizon non démarrable sous Windows | Extensions `pcntl` et `posix` absentes du PHP local. | Fonctionne dans l'image Docker. |
-| Couverture web ~54 % | La phase 1 teste les composants catalogue ; l'objectif de 80 % porte sur les domaines panier et commandes. | Phase 2. |
+| Couverture web 59 % au global, 80–90 % sur le panier et la commande | Les pages éditoriales et les clients API restent couverts par Playwright ; l'objectif de 80 % s'applique aux domaines panier et commande, désormais atteint. | Compléter les tests de pages en phase 5 (contenus). |
 | Textes légaux, photos Femme, coordonnées | Non fournis par le client. | Marqués `[à compléter]`, jamais présentés comme définitifs. |

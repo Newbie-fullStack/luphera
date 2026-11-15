@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
+import { CartDrawer } from '@/features/cart/components/CartDrawer';
+
 import { ScrollProgress } from './ScrollProgress';
 import { SiteFooter } from './SiteFooter';
 import { SiteHeader } from './SiteHeader';
@@ -30,6 +32,7 @@ export function SiteLayout() {
       <ScrollToTop />
       <ScrollProgress />
       <SiteHeader />
+      <CartDrawer />
       <main id="contenu" tabIndex={-1} className="flex-1 pt-[104px] outline-none">
         <Outlet />
       </main>

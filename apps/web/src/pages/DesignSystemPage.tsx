@@ -11,6 +11,7 @@ import { ShippingProgress } from '@/components/ui/ShippingProgress';
 import { SizeSelector, type SizeOption } from '@/components/ui/SizeSelector';
 import { Stepper } from '@/components/ui/Stepper';
 import { Tag } from '@/components/ui/Tag';
+import { formatMAD } from '@/lib/format';
 
 const colors = [
   { key: 'nuit', token: '--color-nuit', hex: '#070605' },
@@ -393,7 +394,15 @@ export function DesignSystemPage() {
 
             <div className="grid w-full max-w-xs gap-2.5">
               <span className="eyebrow">{t('designSystem.shopComponents.freeShipping')}</span>
-              <ShippingProgress subtotalCents={56000} thresholdCents={80000} />
+              <ShippingProgress
+                subtotalCents={56000}
+                thresholdCents={80000}
+                freeLabel={t('cart.freeShipping')}
+                renderRemaining={(remaining) => (
+                  <>{t('designSystem.shopComponents.freeShippingText', { amount: formatMAD(remaining) })}</>
+                )}
+                progressLabel={t('cart.freeShippingProgress')}
+              />
             </div>
 
             <div className="grid w-full max-w-xs gap-2.5">

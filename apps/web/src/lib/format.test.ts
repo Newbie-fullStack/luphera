@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatMAD, formatPrice } from '@/lib/format';
+import { formatDateTime, formatMAD, formatPrice } from '@/lib/format';
 
 describe('formatMAD', () => {
   it('formats integer centimes as MAD', () => {
@@ -22,5 +22,19 @@ describe('formatMAD', () => {
 
   it('keeps the price helper aligned with the amount helper', () => {
     expect(formatPrice(69000)).toBe(formatMAD(69000));
+  });
+});
+
+describe('formatDateTime', () => {
+  it('renders an ISO timestamp for a French reader', () => {
+    const formatted = formatDateTime('2026-11-15T10:30:00+00:00');
+
+    expect(formatted).not.toBeNull();
+    expect(formatted).toContain('2026');
+  });
+
+  it('returns null instead of inventing a date', () => {
+    expect(formatDateTime(null)).toBeNull();
+    expect(formatDateTime('pas-une-date')).toBeNull();
   });
 });

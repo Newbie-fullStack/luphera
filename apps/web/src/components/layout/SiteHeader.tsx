@@ -4,7 +4,7 @@ import { Link, NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { Drawer } from '@/components/ui/Drawer';
-import { ButtonLink } from '@/components/ui/Button';
+import { useCart } from '@/features/cart/useCart';
 import { cn } from '@/lib/cn';
 
 const links = [
@@ -16,7 +16,7 @@ const links = [
 
 export function SiteHeader() {
   const { t } = useTranslation();
-  const [cartOpen, setCartOpen] = useState(false);
+  const { count, openCart } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -53,14 +53,14 @@ export function SiteHeader() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setCartOpen(true)}
+              onClick={openCart}
               aria-label={t('nav.openCart')}
               className="inline-flex min-h-10 items-center gap-2.5 border border-ligne-forte bg-nuit/50 px-4 text-[11.5px] font-medium uppercase tracking-[.24em] text-ivoire transition-colors duration-300 hover:border-or hover:bg-or/10"
             >
               <ShoppingBag size={15} aria-hidden="true" />
               <span className="hidden sm:inline">{t('nav.cart')}</span>
               <b className="inline-grid h-5 min-w-5 place-items-center bg-or px-1 text-[11px] font-medium tracking-normal text-nuit">
-                0
+                {count}
               </b>
             </button>
 
@@ -96,24 +96,6 @@ export function SiteHeader() {
             </NavLink>
           ))}
         </nav>
-      </Drawer>
-
-      <Drawer
-        open={cartOpen}
-        onClose={() => setCartOpen(false)}
-        title={t('cart.title')}
-        closeLabel={t('common.close')}
-        footer={
-          <ButtonLink to="/boutique" onClick={() => setCartOpen(false)} className="w-full">
-            {t('cart.continue')}
-          </ButtonLink>
-        }
-      >
-        <div className="grid justify-items-center gap-4 py-16 text-center">
-          <ShoppingBag size={28} className="text-or" aria-hidden="true" />
-          <p className="font-display text-2xl text-ivoire">{t('cart.empty')}</p>
-          <p className="max-w-[28ch] text-sm text-brume">{t('cart.emptyHint')}</p>
-        </div>
       </Drawer>
     </>
   );

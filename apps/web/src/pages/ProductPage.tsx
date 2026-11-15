@@ -13,6 +13,7 @@ import { ProductCard } from '@/features/catalog/components/ProductCard';
 import { ProductJsonLd } from '@/features/catalog/components/ProductJsonLd';
 import { useProduct, useRelatedProducts } from '@/features/catalog/useCatalog';
 import type { ProductDetail, ProductSummary } from '@/features/catalog/types';
+import { useCart } from '@/features/cart/useCart';
 import { ApiError } from '@/lib/api/client';
 import { formatMAD } from '@/lib/format';
 
@@ -66,9 +67,12 @@ interface ProductViewProps {
 
 function ProductView({ product, related }: ProductViewProps) {
   const { t } = useTranslation();
+  const { addItem } = useCart();
   const [variantId, setVariantId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [mediaIndex, setMediaIndex] = useState(0);
+  const [adding, setAdding] = useState(false);
+  const [cartError, setCartError] = useState<string | null>(null);
 
   const variants = product.variants;
   const selected =
@@ -80,6 +84,7 @@ function ProductView({ product, related }: ProductViewProps) {
   const activePhoto = photos[mediaIndex] ?? photos[0] ?? null;
   const price = selected?.price_cents ?? product.from_price_cents;
   const compareAt = selected?.compare_at_price_cents ?? null;
+  const available = selected !== undefined && selected.stock_status !== 'out_of_stock';
 
   const noteGroups = (['top', 'heart', 'base'] as const).map((level) => ({
     level,
@@ -89,7 +94,28 @@ function ProductView({ product, related }: ProductViewProps) {
   const hasMeters =
     product.intensity !== null || product.longevity !== null || product.sillage !== null;
 
-  const addToCartLabel = t('product.addToCart');
+  const addToCartLabel = adding
+    ? t('product.addToCartPending')
+    : available
+      ? t('product.addToCart')
+      : t('product.addToCartUnavailable');
+
+  async function handleAdd(): Promise<void> {
+    if (selected === undefined || adding || !available) {
+      return;
+    }
+
+    setAdding(true);
+    setCartError(null);
+
+    try {
+      await addItem(selected.id, quantity);
+    } catch (error) {
+      setCartError(error instanceof ApiError ? error.message : t('product.addToCartError'));
+    } finally {
+      setAdding(false);
+    }
+  }
 
   return (
     <div className="gutter pb-32 pt-10 lg:pb-24">
@@ -201,12 +227,19 @@ function ProductView({ product, related }: ProductViewProps) {
               <button
                 type="button"
                 className="btn btn-primary flex-1"
-                disabled
+                disabled={adding || !available}
                 aria-describedby="cart-next-step"
+                onClick={() => void handleAdd()}
               >
                 {addToCartLabel}
               </button>
             </div>
+
+            {cartError !== null ? (
+              <p role="alert" className="field-error">
+                {cartError}
+              </p>
+            ) : null}
 
             <p id="cart-next-step" className="text-[12.5px] leading-relaxed text-brume">
               {t('product.cartNextStep')}
@@ -364,7 +397,12 @@ function ProductView({ product, related }: ProductViewProps) {
           </span>
           <span className="font-display text-lg text-ivoire">{formatMAD(price)}</span>
         </div>
-        <button type="button" className="btn btn-primary min-h-11 flex-1" disabled>
+        <button
+          type="button"
+          className="btn btn-primary min-h-11 flex-1"
+          disabled={adding || !available}
+          onClick={() => void handleAdd()}
+        >
           {addToCartLabel}
         </button>
       </div>

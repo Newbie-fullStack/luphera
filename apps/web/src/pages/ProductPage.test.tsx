@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchProduct, fetchRelatedProducts } from '@/features/catalog/api';
 import type { ProductDetail, ProductSummary } from '@/features/catalog/types';
+import { CartContext, type CartContextValue } from '@/features/cart/useCart';
 import { ApiError } from '@/lib/api/client';
 import { ProductPage } from '@/pages/ProductPage';
 
@@ -18,6 +19,24 @@ vi.mock('@/features/catalog/api', () => ({
 
 const mockedFetchProduct = vi.mocked(fetchProduct);
 const mockedFetchRelated = vi.mocked(fetchRelatedProducts);
+const addItem = vi.fn<CartContextValue['addItem']>().mockResolvedValue(undefined);
+
+const cartValue: CartContextValue = {
+  cart: null,
+  isLoading: false,
+  count: 0,
+  isOpen: false,
+  openCart: vi.fn(),
+  closeCart: vi.fn(),
+  city: null,
+  setCity: vi.fn(),
+  addItem,
+  updateItem: vi.fn(),
+  removeItem: vi.fn(),
+  applyCoupon: vi.fn(),
+  removeCoupon: vi.fn(),
+  refresh: vi.fn(),
+};
 
 const related: ProductSummary = {
   id: '01HZZZZZZZZZZZZZZZZZZZZZZY',
@@ -102,11 +121,13 @@ function renderProduct(initialEntry = '/produit/luphera-noir') {
 
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[initialEntry]}>
-        <Routes>
-          <Route path="produit/:slug" element={<ProductPage />} />
-        </Routes>
-      </MemoryRouter>
+      <CartContext.Provider value={cartValue}>
+        <MemoryRouter initialEntries={[initialEntry]}>
+          <Routes>
+            <Route path="produit/:slug" element={<ProductPage />} />
+          </Routes>
+        </MemoryRouter>
+      </CartContext.Provider>
     </QueryClientProvider>,
   );
 }
@@ -115,6 +136,7 @@ describe('ProductPage', () => {
   beforeEach(() => {
     mockedFetchProduct.mockReset();
     mockedFetchRelated.mockReset();
+    addItem.mockClear();
     mockedFetchRelated.mockResolvedValue([related]);
   });
 
@@ -157,7 +179,8 @@ describe('ProductPage', () => {
     expect(screen.getByText(/Vaporisez à 15 cm/)).toBeInTheDocument();
   });
 
-  it('keeps the add to cart button disabled until the cart phase', async () => {
+  it('adds the selected size to the cart', async () => {
+    const user = userEvent.setup();
     mockedFetchProduct.mockResolvedValue(product);
 
     renderProduct();
@@ -167,8 +190,12 @@ describe('ProductPage', () => {
     const buttons = screen.getAllByRole('button', { name: 'Ajouter au panier' });
 
     expect(buttons.length).toBeGreaterThan(0);
-    buttons.forEach((button) => expect(button).toBeDisabled());
-    expect(screen.getByText(/Le panier ouvre à la prochaine étape/)).toBeInTheDocument();
+    buttons.forEach((button) => expect(button).toBeEnabled());
+
+    await user.click(buttons[0]);
+
+    expect(addItem).toHaveBeenCalledWith('01HAAAAAAAAAAAAAAAAAAAAAAA2', 1);
+    expect(screen.getByText(/Paiement à la livraison\. Les prix affichés/)).toBeInTheDocument();
   });
 
   it('shows related products', async () => {

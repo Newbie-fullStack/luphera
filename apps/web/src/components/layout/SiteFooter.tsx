@@ -13,6 +13,7 @@ const columns = [
     titleKey: 'footer.help',
     links: [
       { to: '/livraison', labelKey: 'footer.shipping' },
+      { to: '/suivi', labelKey: 'footer.trackOrder' },
       { to: '/contact', labelKey: 'footer.contact' },
     ],
   },

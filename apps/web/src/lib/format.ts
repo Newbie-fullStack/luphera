@@ -16,3 +16,22 @@ export function formatMAD(cents: number): string {
 export function formatPrice(cents: number): string {
   return formatMAD(cents);
 }
+
+const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
+  dateStyle: 'long',
+  timeStyle: 'short',
+});
+
+/**
+ * ISO 8601 timestamp from the API, rendered for a French reader.
+ * Returns null when the date is missing rather than inventing one.
+ */
+export function formatDateTime(iso: string | null): string | null {
+  if (iso === null) {
+    return null;
+  }
+
+  const date = new Date(iso);
+
+  return Number.isNaN(date.getTime()) ? null : dateTimeFormat.format(date);
+}

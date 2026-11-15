@@ -1,0 +1,34 @@
+<?php
+
+namespace App\Domain\Commerce\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Shipment extends Model
+{
+    protected $fillable = [
+        'order_id',
+        'carrier',
+        'tracking_number',
+        'status',
+        'shipped_at',
+        'delivered_at',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'shipped_at' => 'datetime',
+        'delivered_at' => 'datetime',
+    ];
+
+    /**
+     * @return BelongsTo<Order, $this>
+     */
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+}

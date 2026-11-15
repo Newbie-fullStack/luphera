@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Commerce\Exceptions\BusinessRuleException;
 use App\Http\Middleware\SecurityHeaders;
 use App\Support\ApiResponse;
 use Illuminate\Auth\AuthenticationException;
@@ -69,6 +70,19 @@ return Application::configure(basePath: dirname(__DIR__))
                 429,
                 'rate_limited',
             )->withHeaders($exception->getHeaders());
+        });
+
+        $exceptions->render(function (BusinessRuleException $exception, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            return ApiResponse::error(
+                $exception->getMessage(),
+                $exception->fields,
+                $exception->status,
+                $exception->errorCode,
+            );
         });
 
         $exceptions->render(function (Throwable $exception, Request $request) {

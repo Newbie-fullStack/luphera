@@ -9,6 +9,7 @@ import '@/styles/components.css';
 
 import { App } from '@/app/App';
 import { AppErrorBoundary } from '@/app/AppErrorBoundary';
+import { CartProvider } from '@/features/cart/CartProvider';
 import { queryClient } from '@/lib/query-client';
 
 const container = document.getElementById('root');
@@ -22,7 +23,9 @@ createRoot(container).render(
     <AppErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <App />
+          <CartProvider>
+            <App />
+          </CartProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </AppErrorBoundary>
