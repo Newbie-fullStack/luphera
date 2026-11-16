@@ -1,15 +1,18 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AccountOrderController;
+use App\Http\Controllers\Api\V1\AddressController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BundleController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\HealthController;
+use App\Http\Controllers\Api\V1\InvoiceController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\SettingsController;
 use App\Http\Controllers\Api\V1\ShippingController;
+use App\Http\Controllers\Api\V1\WishlistController;
 use App\Support\ApiResponse;
 use Illuminate\Support\Facades\Route;
 
@@ -69,4 +72,14 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
 
     Route::get('/me/orders', [AccountOrderController::class, 'index'])->name('api.me.orders.index');
     Route::get('/me/orders/{number}', [AccountOrderController::class, 'show'])->name('api.me.orders.show');
+    Route::get('/me/orders/{number}/invoice', [InvoiceController::class, 'show'])->name('api.me.orders.invoice');
+
+    Route::get('/me/addresses', [AddressController::class, 'index'])->name('api.me.addresses.index');
+    Route::post('/me/addresses', [AddressController::class, 'store'])->name('api.me.addresses.store');
+    Route::patch('/me/addresses/{address}', [AddressController::class, 'update'])->name('api.me.addresses.update');
+    Route::delete('/me/addresses/{address}', [AddressController::class, 'destroy'])->name('api.me.addresses.destroy');
+
+    Route::get('/me/wishlist', [WishlistController::class, 'index'])->name('api.me.wishlist.index');
+    Route::post('/me/wishlist', [WishlistController::class, 'store'])->name('api.me.wishlist.store');
+    Route::delete('/me/wishlist/{product}', [WishlistController::class, 'destroy'])->name('api.me.wishlist.destroy');
 });

@@ -1,7 +1,10 @@
 <?php
 
 use App\Domain\Catalog\Models\ProductVariant;
+use App\Domain\Commerce\Models\Order;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 uses(TestCase::class)->in('Feature', 'Unit');
@@ -54,4 +57,37 @@ function orderPayload(array $overrides = []): array
         'payment_method' => 'cod',
         'terms' => true,
     ], $overrides);
+}
+
+/**
+ * Minimal order row for account tests: no cart, no stock movement.
+ *
+ * @param array<string, mixed> $overrides
+ */
+function orderFor(?User $user, array $overrides = []): Order
+{
+    static $sequence = 0;
+    $sequence++;
+
+    return Order::create(array_merge([
+        'number' => 'LPH-261115-'.str_pad((string) $sequence, 4, '0', STR_PAD_LEFT),
+        'user_id' => $user?->id,
+        'status' => 'pending',
+        'customer_name' => 'Salma Bennani',
+        'phone' => $user?->phone ?? '+212612345678',
+        'address' => [
+            'city' => 'Casablanca',
+            'city_slug' => 'casablanca',
+            'district' => 'Maarif',
+            'line1' => '12 rue des Orangers',
+            'landmark' => null,
+        ],
+        'subtotal_cents' => 45000,
+        'discount_cents' => 0,
+        'shipping_cents' => 0,
+        'total_cents' => 45000,
+        'payment_method' => 'cod',
+        'tracking_token' => Str::random(40),
+        'placed_at' => now(),
+    ], $overrides));
 }
