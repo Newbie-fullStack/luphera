@@ -1,10 +1,13 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AccountOrderController;
+use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BundleController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\SettingsController;
 use App\Http\Controllers\Api\V1\ShippingController;
 use App\Support\ApiResponse;
@@ -49,4 +52,21 @@ Route::middleware('throttle:api')->group(function (): void {
 Route::middleware('throttle:orders')->group(function (): void {
     Route::post('/orders', [OrderController::class, 'store'])->name('api.orders.store');
     Route::get('/orders/{number}', [OrderController::class, 'show'])->name('api.orders.show');
+});
+
+Route::middleware('throttle:auth')->group(function (): void {
+    Route::post('/auth/register', [AuthController::class, 'register'])->name('api.auth.register');
+    Route::post('/auth/login', [AuthController::class, 'login'])->name('api.auth.login');
+    Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->name('api.auth.password.email');
+    Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])->name('api.auth.password.reset');
+});
+
+Route::middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
+    Route::post('/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
+
+    Route::get('/me', [ProfileController::class, 'show'])->name('api.me.show');
+    Route::patch('/me', [ProfileController::class, 'update'])->name('api.me.update');
+
+    Route::get('/me/orders', [AccountOrderController::class, 'index'])->name('api.me.orders.index');
+    Route::get('/me/orders/{number}', [AccountOrderController::class, 'show'])->name('api.me.orders.show');
 });

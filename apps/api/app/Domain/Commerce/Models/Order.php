@@ -21,6 +21,7 @@ class Order extends Model
     protected $fillable = [
         'number',
         'user_id',
+        'claimed_at',
         'status',
         'customer_name',
         'phone',
@@ -50,6 +51,7 @@ class Order extends Model
         'total_cents' => 'integer',
         'payment_method' => PaymentMethod::class,
         'placed_at' => 'datetime',
+        'claimed_at' => 'datetime',
     ];
 
     /**
