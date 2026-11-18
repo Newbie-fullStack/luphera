@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, ShoppingBag } from 'lucide-react';
 import { useForm, useWatch, type FieldPath } from 'react-hook-form';
@@ -10,13 +10,15 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import { FieldShell, TextField } from '@/components/ui/Field';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { fetchAddresses } from '@/features/auth/api';
+import { useAuth } from '@/features/auth/useAuth';
 import { fetchCities, placeOrder } from '@/features/cart/api';
 import { useCart } from '@/features/cart/useCart';
 import { createCheckoutSchema, type CheckoutFormValues } from '@/features/orders/checkoutSchema';
 import { rememberOrderToken } from '@/features/orders/storage';
 import { ApiError } from '@/lib/api/client';
 import { formatMAD } from '@/lib/format';
-import { normalizeMoroccanPhone } from '@/lib/phone';
+import { formatMoroccanPhone, normalizeMoroccanPhone } from '@/lib/phone';
 
 function newIdempotencyKey(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -30,10 +32,18 @@ export function CheckoutPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { cart, isLoading, city, setCity, refresh, openCart } = useCart();
+  const { user } = useAuth();
   const cities = useQuery({ queryKey: ['shipping', 'cities'], queryFn: fetchCities, staleTime: 300_000 });
+  const addresses = useQuery({
+    queryKey: ['addresses'],
+    queryFn: fetchAddresses,
+    enabled: user !== null,
+    staleTime: 60_000,
+  });
   const [idempotencyKey] = useState(newIdempotencyKey);
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const prefilled = useRef(false);
 
   const schema = useMemo(() => createCheckoutSchema(t), [t]);
   const form = useForm<CheckoutFormValues>({
@@ -56,6 +66,37 @@ export function CheckoutPage() {
   useEffect(() => {
     setCity(selectedCity === undefined || selectedCity === '' ? null : selectedCity);
   }, [selectedCity, setCity]);
+
+  /**
+   * A signed-in customer starts from their default address; the server still
+   * computes the totals, the prefill only saves typing.
+   */
+  useEffect(() => {
+    if (prefilled.current || user === null || addresses.data === undefined) {
+      return;
+    }
+
+    prefilled.current = true;
+
+    const current = form.getValues();
+
+    if (current.customer_name !== '') {
+      return;
+    }
+
+    const address = addresses.data.find((item) => item.is_default) ?? addresses.data[0];
+
+    form.reset({
+      ...current,
+      customer_name: user.name,
+      phone: address === undefined ? '' : formatMoroccanPhone(address.phone),
+      email: current.email === '' ? (user.email ?? '') : current.email,
+      city: address?.city?.slug ?? current.city,
+      district: address?.district ?? current.district,
+      address: address?.address ?? current.address,
+      landmark: address?.landmark ?? current.landmark,
+    });
+  }, [addresses.data, form, user]);
 
   useEffect(() => {
     document.title = `${t('checkout.title')} — Luphéra`;

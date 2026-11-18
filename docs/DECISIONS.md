@@ -82,11 +82,32 @@ Chaque ligne documente un choix et sa justification. Une décision qui change es
 | 59 | `ShippingProgress` reçoit ses libellés et un renderer de reste à payer | Le composant reste sans texte français en dur, donc réutilisable pour l'arabe et le RTL de la phase 7. |
 | 60 | `DatabaseSeeder` sans `WithoutModelEvents` ; cache des permissions vidé après leur création | Le trait désactivait le hook `creating` de `HasPublicId` (échec `users.public_id`) ; `syncPermissions` résout les noms via le cache du registrar. |
 
+## Comptes (phase 3)
+
+| # | Décision | Justification |
+| --- | --- | --- |
+| 61 | Authentification par session Sanctum (`statefulApi()`, cookie `httpOnly`), aucun token Bearer délivré au navigateur | Le brief impose un compte client sans application mobile ; le cookie évite de stocker un secret lisible en JavaScript. |
+| 62 | Un seul champ `identifier` à la connexion ; un `@` choisit l'e-mail, sinon le téléphone normalisé `+212…` | Le client se souvient d'un numéro ou d'un e-mail, pas d'un type de compte ; une seule route évite deux formulaires. |
+| 63 | Les commandes invité sont rattachées **uniquement à l'inscription**, par téléphone normalisé (`OrderClaimService`, `user_id` + `claimed_at`) | Réclamer à la connexion permettrait de prendre les commandes d'autrui en connaissant juste un numéro. |
+| 64 | `PATCH /me` n'accepte pas `phone` ; le changement exige une vérification SMS `[à compléter]` | Déplacer un compte vers un numéro non prouvé ouvrirait une prise de contrôle ; l'interface l'explique au lieu d'échouer en silence. |
+| 65 | Toute ressource d'un autre client répond `404`, jamais `403` | Un `403` confirmerait l'existence de la commande ou de l'adresse devinée. |
+| 66 | Invariant d'une seule adresse par défaut, porté par `AddressBook` : première adresse par défaut, défaut explicite rétrograde les autres, suppression promeut la plus récente | Le checkout a besoin d'une adresse par défaut stable ; la règle vit au même endroit que les écritures. |
+| 67 | Facture PDF (`barryvdh/laravel-dompdf`) réservée aux commandes `delivered` et à leur propriétaire, rendu texte seul | Une commande en cours peut encore changer ; le PDF local ne dépend pas de `gd`, absent du PHP du poste. |
+| 68 | CSRF récupéré paresseusement une fois par chargement de page, puis renvoyé en `X-XSRF-TOKEN` ; Vite proxifie `/api` et `/sanctum` | Sanctum exige le cookie et l'en-tête sur chaque mutation ; le proxy garde le navigateur sur une seule origine en développement. |
+| 69 | `fetchMe` traduit `401` en `null` (visiteur), sans message d'erreur | Un visiteur n'est pas une panne ; seul le navigateur journalise la ressource 401, filtrée dans les tests e2e. |
+| 70 | `SANCTUM_STATEFUL_DOMAINS` inclut `localhost:5180` en plus de 5173/8000 | Sans le port réel du serveur Vite, les cookies de session ne sont pas posés et l'authentification échoue silencieusement. |
+| 71 | Favoris pilotés depuis la fiche produit (`Ajouter aux favoris` / `Retirer des favoris`) ; visiteur redirigé vers `/connexion?redirect=/produit/{slug}` | Le geste naturel est sur le produit, pas dans le compte ; la redirection ramène le client là où il était. |
+| 72 | Schémas Zod d'authentification partagés dans `features/auth/schemas.ts`, erreurs serveur mappées par `lib/forms.ts` | Les quatre formulaires partagent les mêmes règles ; le mapping évite de dupliquer la lecture de `errors.fields`. |
+| 73 | Le checkout préremplit l'adresse par défaut une seule fois, sans écraser une saisie en cours ; les totaux serveur restent seuls maîtres | Un client qui corrige son adresse ne doit pas la voir réinitialisée ; un total venu du front serait une faille. |
+| 74 | Mot de passe oublié : même réponse que l'adresse existe ou non | Empêche d'énumérer les comptes par l'e-mail. |
+| 75 | Captures de compte rejouées par `scripts/screens.mjs` (`SCREEN_FLOW=account`) avec un client jetable | Les écrans de compte exigent une session réelle ; des données générées gardent les captures reproductibles. |
+| 76 | `testTimeout` Vitest porté à 15 s | La suite complète exécutée en parallèle dépassait le délai par défaut sur les tests de formulaire, sans échec réel. |
+
 ## Écarts assumés
 
 | Écart | Raison | Suite |
 | --- | --- | --- |
-| `make up` non exécuté sur le poste de développement | Docker n'y est pas installé ; le compose est validé par `docker compose config` en CI. | À valider sur une machine Docker avant la phase 3. |
+| `make up` non exécuté sur le poste de développement | Docker n'y est pas installé ; le compose est validé par `docker compose config` en CI. | À valider sur une machine Docker avant la phase 4. |
 | Horizon non démarrable sous Windows | Extensions `pcntl` et `posix` absentes du PHP local. | Fonctionne dans l'image Docker. |
 | Couverture web 59 % au global, 80–90 % sur le panier et la commande | Les pages éditoriales et les clients API restent couverts par Playwright ; l'objectif de 80 % s'applique aux domaines panier et commande, désormais atteint. | Compléter les tests de pages en phase 5 (contenus). |
 | Textes légaux, photos Femme, coordonnées | Non fournis par le client. | Marqués `[à compléter]`, jamais présentés comme définitifs. |

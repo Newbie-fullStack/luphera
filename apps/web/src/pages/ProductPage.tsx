@@ -1,7 +1,8 @@
 ﻿import { useEffect, useState } from 'react';
-import { ArrowLeft, ChevronDown } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, ChevronDown, Heart } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import { ButtonLink } from '@/components/ui/Button';
@@ -9,6 +10,8 @@ import { Meter } from '@/components/ui/Meter';
 import { SizeSelector } from '@/components/ui/SizeSelector';
 import { Stepper } from '@/components/ui/Stepper';
 import { Tag } from '@/components/ui/Tag';
+import { addToWishlist, fetchWishlist, removeFromWishlist } from '@/features/auth/api';
+import { useAuth } from '@/features/auth/useAuth';
 import { ProductCard } from '@/features/catalog/components/ProductCard';
 import { ProductJsonLd } from '@/features/catalog/components/ProductJsonLd';
 import { useProduct, useRelatedProducts } from '@/features/catalog/useCatalog';
@@ -68,11 +71,44 @@ interface ProductViewProps {
 function ProductView({ product, related }: ProductViewProps) {
   const { t } = useTranslation();
   const { addItem } = useCart();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [variantId, setVariantId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [mediaIndex, setMediaIndex] = useState(0);
   const [adding, setAdding] = useState(false);
   const [cartError, setCartError] = useState<string | null>(null);
+  const [wishlistError, setWishlistError] = useState<string | null>(null);
+
+  const wishlist = useQuery({
+    queryKey: ['wishlist'],
+    queryFn: fetchWishlist,
+    enabled: user !== null,
+    staleTime: 60_000,
+  });
+  const isFavourite = wishlist.data?.some((item) => item.id === product.id) ?? false;
+
+  const toggleWishlist = useMutation({
+    mutationFn: () =>
+      isFavourite ? removeFromWishlist(product.id) : addToWishlist(product.id),
+    onSuccess: () => {
+      setWishlistError(null);
+      void queryClient.invalidateQueries({ queryKey: ['wishlist'] });
+    },
+    onError: () => setWishlistError(t('product.wishlistError')),
+  });
+
+  const handleWishlist = () => {
+    if (user === null) {
+      void navigate(
+        `/connexion?redirect=${encodeURIComponent(`/produit/${product.slug}`)}`,
+      );
+      return;
+    }
+
+    toggleWishlist.mutate();
+  };
 
   const variants = product.variants;
   const selected =
@@ -244,6 +280,23 @@ function ProductView({ product, related }: ProductViewProps) {
             <p id="cart-next-step" className="text-[12.5px] leading-relaxed text-brume">
               {t('product.cartNextStep')}
             </p>
+
+            <button
+              type="button"
+              onClick={handleWishlist}
+              aria-pressed={isFavourite}
+              disabled={toggleWishlist.isPending}
+              className="inline-flex items-center gap-2 justify-self-start text-[10.5px] uppercase tracking-[.24em] text-brume transition-colors hover:text-or-clair disabled:opacity-50"
+            >
+              <Heart size={14} aria-hidden="true" fill={isFavourite ? 'currentColor' : 'none'} />
+              {isFavourite ? t('account.wishlist.remove') : t('product.wishlistAdd')}
+            </button>
+
+            {wishlistError !== null ? (
+              <p role="alert" className="field-error">
+                {wishlistError}
+              </p>
+            ) : null}
           </div>
 
           {hasMeters ? (

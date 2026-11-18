@@ -7,9 +7,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchCities, placeOrder } from '@/features/cart/api';
 import type { Cart, Order } from '@/features/cart/types';
 import { CartContext, type CartContextValue } from '@/features/cart/useCart';
+import { AuthContext } from '@/features/auth/useAuth';
 import { rememberOrderToken } from '@/features/orders/storage';
 import { ApiError } from '@/lib/api/client';
 import { CheckoutPage } from '@/pages/CheckoutPage';
+import { authValue } from '@/test/auth';
 
 vi.mock('@/features/cart/api', () => ({
   fetchCities: vi.fn(),
@@ -109,14 +111,16 @@ function renderCheckout(value: Partial<CartContextValue> = {}) {
 
   return render(
     <QueryClientProvider client={client}>
-      <CartContext.Provider value={context}>
-        <MemoryRouter initialEntries={['/commande']}>
-          <Routes>
-            <Route path="commande" element={<CheckoutPage />} />
-            <Route path="commande/confirmation/:number" element={<ConfirmationStub />} />
-          </Routes>
-        </MemoryRouter>
-      </CartContext.Provider>
+      <AuthContext.Provider value={authValue()}>
+        <CartContext.Provider value={context}>
+          <MemoryRouter initialEntries={['/commande']}>
+            <Routes>
+              <Route path="commande" element={<CheckoutPage />} />
+              <Route path="commande/confirmation/:number" element={<ConfirmationStub />} />
+            </Routes>
+          </MemoryRouter>
+        </CartContext.Provider>
+      </AuthContext.Provider>
     </QueryClientProvider>,
   );
 }

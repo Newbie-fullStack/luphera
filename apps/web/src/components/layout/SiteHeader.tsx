@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Menu, ShoppingBag } from 'lucide-react';
+import { Menu, ShoppingBag, User } from 'lucide-react';
 import { Link, NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -51,6 +51,15 @@ export function SiteHeader() {
           </nav>
 
           <div className="flex items-center gap-2">
+            <Link
+              to="/compte"
+              aria-label={t('nav.account')}
+              className="inline-flex min-h-10 items-center gap-2.5 border border-ligne-forte bg-nuit/50 px-4 text-[11.5px] font-medium uppercase tracking-[.24em] text-ivoire transition-colors duration-300 hover:border-or hover:bg-or/10"
+            >
+              <User size={15} aria-hidden="true" />
+              <span className="hidden sm:inline">{t('nav.account')}</span>
+            </Link>
+
             <button
               type="button"
               onClick={openCart}
@@ -95,6 +104,13 @@ export function SiteHeader() {
               {t(link.key)}
             </NavLink>
           ))}
+          <NavLink
+            to="/compte"
+            onClick={() => setMenuOpen(false)}
+            className="border-b border-ligne py-4 text-[12px] font-medium uppercase tracking-[.26em] text-or-clair transition-colors hover:text-ivoire"
+          >
+            {t('nav.account')}
+          </NavLink>
         </nav>
       </Drawer>
     </>

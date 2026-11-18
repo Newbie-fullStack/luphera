@@ -2,7 +2,7 @@
 
 Base locale : `http://localhost:8000/api/v1`. Toutes les réponses sont en JSON, `Accept: application/json` et `X-Requested-With: XMLHttpRequest` recommandés.
 
-Ce document décrit les endpoints **disponibles en phase 0, 1 et 2**. Le contrat complet (compte, admin, contenus) est ajouté au fil des phases ; la spécification OpenAPI ci-dessous en est la source de vérité.
+Ce document décrit les endpoints **disponibles en phase 0, 1, 2 et 3**. Le contrat complet (administration, contenus) est ajouté au fil des phases ; la spécification OpenAPI ci-dessous en est la source de vérité.
 
 ## Enveloppe
 
@@ -515,6 +515,157 @@ delivered → returned
 
 Les statuts terminaux (`cancelled`, `returned`, `failed_delivery`) refusent toute transition. `cancelled`, `failed_delivery` et `returned` remettent les quantités en stock et écrivent un mouvement positif.
 
+## Endpoints phase 3 — comptes clients
+
+Authentification par **session Sanctum** (cookie `httpOnly`). Le SPA récupère d'abord `/sanctum/csrf-cookie`, puis renvoie le cookie `XSRF-TOKEN` dans l'en-tête `X-XSRF-TOKEN` sur chaque mutation. Aucun token Bearer n'est délivré : le navigateur ne détient qu'un cookie de session.
+
+Le téléphone est normalisé en `+212…` avant validation (inscription, connexion, adresses, commande). `identifier` accepte un téléphone **ou** une adresse e-mail : la présence d'un `@` choisit la colonne.
+
+Règles structurantes :
+
+- Une ressource appartenant à un autre client répond `404`, jamais `403` : l'existence d'une commande ou d'une adresse tierce n'est pas dévoilée.
+- Les commandes passées avant l'inscription sont rattachées **à l'inscription uniquement**, si le téléphone normalisé correspond (`OrderClaimService`), via `user_id` et `claimed_at`. La connexion ne réclame jamais de commandes : connaître un numéro ne suffit pas à en prendre possession.
+- Le téléphone n'est pas modifiable par `PATCH /me` : le changement exige une vérification SMS, marquée `[à compléter]`.
+- `GET /me` répond `401` pour un visiteur : le SPA le traduit en état « non connecté », ce n'est pas une erreur affichée.
+- Les routes de compte partagent le limiteur `api` ; inscription, connexion et mots de passe utilisent `auth`.
+
+### `POST /api/v1/auth/register`
+
+```json
+{
+  "name": "Salma Bennani",
+  "phone": "06 12 34 56 78",
+  "email": "salma@example.ma",
+  "password": "secret123",
+  "password_confirmation": "secret123",
+  "marketing_opt_in": false
+}
+```
+
+`201` : le client connecté (ressource utilisateur ci-dessous). La session est ouverte immédiatement et les commandes invité du même téléphone sont rattachées.
+
+| Cas | Statut | `errors.code` |
+| --- | --- | --- |
+| Champ invalide | `422` | `validation_error` |
+| Téléphone déjà utilisé | `422` | `validation_error` (`fields.phone`) |
+| E-mail déjà utilisé | `422` | `validation_error` (`fields.email`) |
+
+### `POST /api/v1/auth/login`
+
+```json
+{ "identifier": "06 12 34 56 78", "password": "secret123" }
+```
+
+`200` : ressource utilisateur, session ouverte. `422` `invalid_credentials` si le couple ne correspond pas (message volontairement générique). `403` `account_disabled` si le compte est désactivé.
+
+### `POST /api/v1/auth/logout`
+
+Session requise. `200` avec `data: null`, session invalidée et jeton CSRF régénéré.
+
+### `POST /api/v1/auth/forgot-password`
+
+```json
+{ "email": "salma@example.ma" }
+```
+
+`200` toujours, avec le même message, que l'adresse existe ou non. Le lien est envoyé par e-mail (`MAIL_MAILER=log` en local) `[à compléter : gabarit et domaine d'envoi]`.
+
+### `POST /api/v1/auth/reset-password`
+
+```json
+{
+  "token": "…",
+  "email": "salma@example.ma",
+  "password": "nouveau123",
+  "password_confirmation": "nouveau123"
+}
+```
+
+`200` si le jeton est valide ; `422` `validation_error` (`fields.email`) s'il est expiré ou inconnu. Tous les tokens existants du compte sont supprimés.
+
+### Ressource utilisateur
+
+```json
+{
+  "id": "01M7P0AKMD6ZZRHV2JHKVDAP3G",
+  "name": "Salma Bennani",
+  "phone": "+212612345678",
+  "email": "salma@example.ma",
+  "phone_verified": false,
+  "marketing_opt_in": false,
+  "roles": ["customer"],
+  "created_at": "2026-11-18T09:12:00+00:00"
+}
+```
+
+### `GET /api/v1/me`
+
+Renvoie la ressource utilisateur. `401` `unauthenticated` sans session.
+
+### `PATCH /api/v1/me`
+
+`name`, `email` et `marketing_opt_in` seulement. Envoyer `phone` est ignoré : le changement de numéro passe par une vérification SMS `[à compléter]`. `200` renvoie la ressource mise à jour ; `422` `validation_error` sur e-mail déjà pris.
+
+### `GET /api/v1/me/orders`
+
+Commandes du client connecté, de la plus récente à la plus ancienne, 20 par page. `meta` porte `current_page`, `last_page`, `per_page` et `total`. Chaque commande reprend la forme de `GET /orders/{number}` sans `tracking`.
+
+### `GET /api/v1/me/orders/{number}`
+
+Détail d'une commande possédée. `404` `not_found` si elle appartient à quelqu'un d'autre ou n'existe pas.
+
+### `GET /api/v1/me/orders/{number}/invoice`
+
+Facture PDF (`application/pdf`, `Content-Disposition: attachment`). Réservée aux commandes `delivered` : `422` `invoice_unavailable` sinon. `404` `not_found` pour une commande tierce. Les mentions légales du document restent `[à compléter]`.
+
+### `GET /api/v1/me/addresses`
+
+Carnet d'adresses, adresse par défaut en tête puis les plus récemment modifiées.
+
+```json
+{
+  "data": [
+    {
+      "id": "01M7P09K2JQ7MZ4GT2XD737XZS",
+      "label": "Maison",
+      "recipient_name": "Salma Bennani",
+      "phone": "+212612345678",
+      "city": { "slug": "casablanca", "name": "Casablanca", "delivery_days": "24 à 48 h" },
+      "district": "Maarif",
+      "address": "12 rue des Orangers",
+      "landmark": null,
+      "is_default": true
+    }
+  ],
+  "meta": {},
+  "errors": []
+}
+```
+
+### `POST /api/v1/me/addresses` et `PATCH /api/v1/me/addresses/{address}`
+
+`recipient_name`, `phone`, `city` (slug actif), `district` et `address` sont requis à la création ; `label`, `landmark` et `is_default` sont facultatifs. `POST` répond `201`. Invariant : la première adresse devient par défaut, déclarer une adresse par défaut rétrograde les autres, supprimer l'adresse par défaut promeut la plus récente restante. Une adresse tierce répond `404`.
+
+### `DELETE /api/v1/me/addresses/{address}`
+
+`200` avec `data: null`. `404` si l'adresse n'appartient pas au client.
+
+### `GET /api/v1/me/wishlist`
+
+Favoris du client, du plus récent au plus ancien, sous la forme des fiches résumées de `GET /products`.
+
+### `POST /api/v1/me/wishlist`
+
+```json
+{ "product_id": "01M7CEEFAVYY6ZH8JX8W2DMMTE" }
+```
+
+`201` avec la fiche résumée. Idempotent : ajouter deux fois le même produit ne crée pas de doublon. `404` `product_not_found` si le produit n'existe pas.
+
+### `DELETE /api/v1/me/wishlist/{product}`
+
+`{product}` est l'ULID public du produit. `200` avec `data: null` ; `404` `not_found` si le favori n'existe pas.
+
 ## Spécification OpenAPI
 
 ```yaml
@@ -539,6 +690,8 @@ tags:
     description: Panier anonyme, coupons et livraison
   - name: Orders
     description: Commande sans compte et suivi public
+  - name: Account
+    description: Session, profil, adresses, favoris et facture du client
 paths:
   /:
     get:
@@ -1052,7 +1205,461 @@ paths:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /auth/register:
+    post:
+      tags: [Account]
+      summary: Créer un compte client et ouvrir la session
+      operationId: registerCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Compte créé, session ouverte, commandes invité rattachées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '422':
+          description: Champ invalide, téléphone ou e-mail déjà utilisé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/login:
+    post:
+      tags: [Account]
+      summary: Ouvrir une session avec un téléphone ou un e-mail
+      operationId: loginCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Session ouverte
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '403':
+          description: Compte désactivé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Identifiants incorrects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/logout:
+    post:
+      tags: [Account]
+      summary: Fermer la session
+      operationId: logoutCustomer
+      security:
+        - sanctumCookie: []
+      responses:
+        '200':
+          description: Session invalidée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NullEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+  /auth/forgot-password:
+    post:
+      tags: [Account]
+      summary: Envoyer un lien de réinitialisation
+      operationId: forgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Message identique que l'adresse existe ou non
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageEnvelope'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /auth/reset-password:
+    post:
+      tags: [Account]
+      summary: Définir un nouveau mot de passe avec un jeton
+      operationId: resetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, email, password, password_confirmation]
+              properties:
+                token:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                password_confirmation:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Mot de passe mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageEnvelope'
+        '422':
+          description: Jeton expiré ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /me:
+    get:
+      tags: [Account]
+      summary: Profil du client connecté
+      operationId: getMe
+      security:
+        - sanctumCookie: []
+      responses:
+        '200':
+          description: Ressource utilisateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    patch:
+      tags: [Account]
+      summary: Mettre à jour le nom, l'e-mail ou les préférences
+      operationId: updateMe
+      security:
+        - sanctumCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdateRequest'
+      responses:
+        '200':
+          description: Profil mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '422':
+          description: Champ invalide ou e-mail déjà pris
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /me/orders:
+    get:
+      tags: [Account]
+      summary: Commandes du client connecté
+      operationId: listMyOrders
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Commandes paginées, les plus récentes d'abord
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+  /me/orders/{number}:
+    get:
+      tags: [Account]
+      summary: Détail d'une commande possédée
+      operationId: getMyOrder
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Commande complète
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          description: Commande inconnue ou appartenant à un autre client
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /me/orders/{number}/invoice:
+    get:
+      tags: [Account]
+      summary: Facture PDF d'une commande livrée
+      operationId: getMyInvoice
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Facture PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          description: Commande inconnue ou appartenant à un autre client
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Commande pas encore livrée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /me/addresses:
+    get:
+      tags: [Account]
+      summary: Carnet d'adresses
+      operationId: listMyAddresses
+      security:
+        - sanctumCookie: []
+      responses:
+        '200':
+          description: Adresses, celle par défaut en tête
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    post:
+      tags: [Account]
+      summary: Ajouter une adresse
+      operationId: createMyAddress
+      security:
+        - sanctumCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressInput'
+      responses:
+        '201':
+          description: Adresse créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '422':
+          description: Champ invalide ou ville inconnue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /me/addresses/{address}:
+    parameters:
+      - name: address
+        in: path
+        required: true
+        schema:
+          type: string
+          description: ULID public de l'adresse
+    patch:
+      tags: [Account]
+      summary: Modifier une adresse
+      operationId: updateMyAddress
+      security:
+        - sanctumCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressInput'
+      responses:
+        '200':
+          description: Adresse mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          description: Adresse inconnue ou appartenant à un autre client
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Champ invalide ou ville inconnue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    delete:
+      tags: [Account]
+      summary: Supprimer une adresse
+      operationId: deleteMyAddress
+      security:
+        - sanctumCookie: []
+      responses:
+        '200':
+          description: Adresse supprimée, défaut promu si nécessaire
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NullEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          description: Adresse inconnue ou appartenant à un autre client
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /me/wishlist:
+    get:
+      tags: [Account]
+      summary: Favoris du client
+      operationId: listMyWishlist
+      security:
+        - sanctumCookie: []
+      responses:
+        '200':
+          description: Fiches résumées des produits favoris
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    post:
+      tags: [Account]
+      summary: Ajouter un produit aux favoris
+      operationId: addMyWishlist
+      security:
+        - sanctumCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_id]
+              properties:
+                product_id:
+                  type: string
+                  description: ULID public du produit
+      responses:
+        '201':
+          description: Favori enregistré (idempotent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          description: Produit introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /me/wishlist/{product}:
+    delete:
+      tags: [Account]
+      summary: Retirer un produit des favoris
+      operationId: removeMyWishlist
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: product
+          in: path
+          required: true
+          schema:
+            type: string
+            description: ULID public du produit
+      responses:
+        '200':
+          description: Favori retiré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NullEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          description: Favori introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 components:
+  securitySchemes:
+    sanctumCookie:
+      type: apiKey
+      in: cookie
+      name: luphera_session
+      description: Session Sanctum (`httpOnly`), précédée de `GET /sanctum/csrf-cookie`
   responses:
     TooManyRequests:
       description: Limite de débit atteinte
@@ -1061,6 +1668,12 @@ components:
           schema:
             type: integer
           description: Secondes avant nouvelle tentative
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unauthenticated:
+      description: Session absente ou expirée
       content:
         application/json:
           schema:
@@ -1807,6 +2420,223 @@ components:
         errors:
           type: array
           maxItems: 0
+    NullEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: 'null'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    MessageEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: object
+          required: [message]
+          properties:
+            message:
+              type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    RegisterRequest:
+      type: object
+      required: [name, phone, password, password_confirmation]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        phone:
+          type: string
+          description: Format marocain, normalisé en +212 côté serveur
+        email:
+          type: [string, 'null']
+          format: email
+        password:
+          type: string
+          minLength: 8
+        password_confirmation:
+          type: string
+          minLength: 8
+        marketing_opt_in:
+          type: boolean
+          default: false
+    LoginRequest:
+      type: object
+      required: [identifier, password]
+      properties:
+        identifier:
+          type: string
+          description: Téléphone ou e-mail ; la présence d'un @ choisit la colonne
+        password:
+          type: string
+    ProfileUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        email:
+          type: [string, 'null']
+          format: email
+        marketing_opt_in:
+          type: boolean
+    User:
+      type: object
+      required: [id, name, phone, phone_verified, marketing_opt_in, roles]
+      properties:
+        id:
+          type: string
+          description: ULID public
+        name:
+          type: string
+        phone:
+          type: string
+          examples: ['+212612345678']
+        email:
+          type: [string, 'null']
+        phone_verified:
+          type: boolean
+        marketing_opt_in:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: [string, 'null']
+          format: date-time
+    UserEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          $ref: '#/components/schemas/User'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    Address:
+      type: object
+      required: [id, recipient_name, phone, city, district, address, is_default]
+      properties:
+        id:
+          type: string
+          description: ULID public
+        label:
+          type: [string, 'null']
+        recipient_name:
+          type: string
+        phone:
+          type: string
+          examples: ['+212612345678']
+        city:
+          oneOf:
+            - type: object
+              required: [slug, name]
+              properties:
+                slug:
+                  type: string
+                name:
+                  type: string
+                delivery_days:
+                  type: [string, 'null']
+            - type: 'null'
+        district:
+          type: string
+        address:
+          type: string
+        landmark:
+          type: [string, 'null']
+        is_default:
+          type: boolean
+    AddressInput:
+      type: object
+      required: [recipient_name, phone, city, district, address]
+      properties:
+        label:
+          type: [string, 'null']
+          maxLength: 40
+        recipient_name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        phone:
+          type: string
+          description: Format marocain, normalisé en +212 côté serveur
+        city:
+          type: string
+          description: Slug d'une ville active
+        district:
+          type: string
+          minLength: 2
+          maxLength: 80
+        address:
+          type: string
+          minLength: 5
+          maxLength: 200
+        landmark:
+          type: [string, 'null']
+          maxLength: 120
+        is_default:
+          type: boolean
+    AddressEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          $ref: '#/components/schemas/Address'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    AddressListEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Address'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    OrderListEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+        meta:
+          type: object
+          required: [current_page, last_page, per_page, total]
+          properties:
+            current_page:
+              type: integer
+            last_page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+        errors:
+          type: array
+          maxItems: 0
     ErrorEnvelope:
       type: object
       required: [data, meta, errors]
@@ -1825,7 +2655,7 @@ components:
 | --- | --- |
 | ~~1~~ | ~~`GET /products`, `GET /products/{slug}`, `GET /products/{slug}/related`, `GET /bundles`~~ — livrés |
 | ~~2~~ | ~~`GET /cart`, `POST /cart/items`, `PATCH/DELETE /cart/items/{item}`, `POST/DELETE /cart/coupon`, `GET /shipping/cities`, `GET /shipping/quote`, `POST /orders`, `GET /orders/{number}`~~ — livrés |
-| 3 | `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /me`, `GET/POST /me/addresses`, `GET /me/orders` |
+| ~~3~~ | ~~`POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password`, `GET/PATCH /me`, `GET /me/orders`, `GET /me/orders/{number}`, `GET /me/orders/{number}/invoice`, `GET/POST /me/addresses`, `PATCH/DELETE /me/addresses/{address}`, `GET/POST /me/wishlist`, `DELETE /me/wishlist/{product}`~~ — livrés |
 | 4 | `/admin/products`, `/admin/orders`, `/admin/stock`, `/admin/coupons` |
 | 6 | `POST /ai/chat` (budget de tokens plafonné) |
 

@@ -9,6 +9,7 @@ import '@/styles/components.css';
 
 import { App } from '@/app/App';
 import { AppErrorBoundary } from '@/app/AppErrorBoundary';
+import { AuthProvider } from '@/features/auth/AuthProvider';
 import { CartProvider } from '@/features/cart/CartProvider';
 import { queryClient } from '@/lib/query-client';
 
@@ -23,9 +24,11 @@ createRoot(container).render(
     <AppErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <CartProvider>
-            <App />
-          </CartProvider>
+          <AuthProvider>
+            <CartProvider>
+              <App />
+            </CartProvider>
+          </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </AppErrorBoundary>

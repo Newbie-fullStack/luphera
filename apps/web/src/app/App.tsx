@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { SiteLayout } from '@/components/layout/SiteLayout';
+import { RequireAuth } from '@/features/account/RequireAuth';
 import { HomePage } from '@/pages/HomePage';
 
 const ShopPage = lazy(() =>
@@ -19,6 +20,46 @@ const ConfirmationPage = lazy(() =>
 );
 const TrackingPage = lazy(() =>
   import('@/pages/TrackingPage').then((module) => ({ default: module.TrackingPage })),
+);
+const LoginPage = lazy(() =>
+  import('@/pages/LoginPage').then((module) => ({ default: module.LoginPage })),
+);
+const RegisterPage = lazy(() =>
+  import('@/pages/RegisterPage').then((module) => ({ default: module.RegisterPage })),
+);
+const ForgotPasswordPage = lazy(() =>
+  import('@/pages/ForgotPasswordPage').then((module) => ({ default: module.ForgotPasswordPage })),
+);
+const ResetPasswordPage = lazy(() =>
+  import('@/pages/ResetPasswordPage').then((module) => ({ default: module.ResetPasswordPage })),
+);
+const AccountLayout = lazy(() =>
+  import('@/features/account/AccountLayout').then((module) => ({ default: module.AccountLayout })),
+);
+const AccountProfilePage = lazy(() =>
+  import('@/features/account/AccountProfilePage').then((module) => ({
+    default: module.AccountProfilePage,
+  })),
+);
+const AccountOrdersPage = lazy(() =>
+  import('@/features/account/AccountOrdersPage').then((module) => ({
+    default: module.AccountOrdersPage,
+  })),
+);
+const AccountOrderPage = lazy(() =>
+  import('@/features/account/AccountOrderPage').then((module) => ({
+    default: module.AccountOrderPage,
+  })),
+);
+const AccountAddressesPage = lazy(() =>
+  import('@/features/account/AccountAddressesPage').then((module) => ({
+    default: module.AccountAddressesPage,
+  })),
+);
+const AccountWishlistPage = lazy(() =>
+  import('@/features/account/AccountWishlistPage').then((module) => ({
+    default: module.AccountWishlistPage,
+  })),
 );
 const DesignSystemPage = lazy(() =>
   import('@/pages/DesignSystemPage').then((module) => ({ default: module.DesignSystemPage })),
@@ -53,7 +94,24 @@ export function App() {
           <Route path="commande" element={<CheckoutPage />} />
           <Route path="commande/confirmation/:number" element={<ConfirmationPage />} />
           <Route path="suivi" element={<TrackingPage />} />
-          <Route path="compte" element={<PlaceholderPage titleKey="nav.account" />} />
+          <Route path="connexion" element={<LoginPage />} />
+          <Route path="inscription" element={<RegisterPage />} />
+          <Route path="mot-de-passe-oublie" element={<ForgotPasswordPage />} />
+          <Route path="reinitialiser-mot-de-passe" element={<ResetPasswordPage />} />
+          <Route
+            path="compte"
+            element={
+              <RequireAuth>
+                <AccountLayout />
+              </RequireAuth>
+            }
+          >
+            <Route index element={<AccountProfilePage />} />
+            <Route path="commandes" element={<AccountOrdersPage />} />
+            <Route path="commandes/:number" element={<AccountOrderPage />} />
+            <Route path="adresses" element={<AccountAddressesPage />} />
+            <Route path="favoris" element={<AccountWishlistPage />} />
+          </Route>
           <Route path="histoire" element={<PlaceholderPage titleKey="nav.story" />} />
           <Route path="livraison" element={<PlaceholderPage titleKey="nav.shipping" />} />
           <Route path="contact" element={<PlaceholderPage titleKey="nav.contact" />} />

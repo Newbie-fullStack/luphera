@@ -20,7 +20,12 @@ const shots = [
   { name: 'design-system-390', url: '/design-system', width: 390, height: 844 },
 ];
 
+// SCREEN_FLOW=account captures only the account pages, SCREEN_FLOW=flow only
+// the purchase journey. Unset means everything (the make target).
+const flow = process.env.SCREEN_FLOW ?? 'all';
+
 for (const shot of shots) {
+  if (flow === 'account') break;
   const page = await browser.newPage({
     viewport: { width: shot.width, height: shot.height },
     deviceScaleFactor: 1,
@@ -111,8 +116,80 @@ async function captureFlow(width, height, suffix) {
   await page.close();
 }
 
-await captureFlow(1440, 900, '1440');
-await captureFlow(390, 844, '390');
+/**
+ * Phase 3 screens need a real session. The flow registers a throw-away
+ * customer, saves one address and one favourite, then captures the account
+ * pages. Names and phones are generated so the captures stay reproducible.
+ */
+async function captureAccount(width, height, suffix) {
+  const page = await browser.newPage({
+    viewport: { width, height },
+    deviceScaleFactor: 1,
+    reducedMotion: 'reduce',
+  });
+
+  const stamp = String(Date.now()).slice(-8);
+  const name = 'Salma Bennani';
+  const phone = `06${String(Date.now()).slice(-8)}`;
+  const email = `salma.${stamp}@example.ma`;
+  const password = 'secret123';
+
+  await page.goto(`${base}/connexion`, { waitUntil: 'networkidle' });
+  await page.getByRole('heading', { name: 'Connexion' }).waitFor({ state: 'visible' });
+  await fullShot(page, path.join(out, `account-login-${suffix}.png`));
+
+  await page.goto(`${base}/inscription`, { waitUntil: 'networkidle' });
+  await page.getByLabel('Nom complet').fill(name);
+  await page.getByLabel('Téléphone').fill(phone);
+  await page.getByLabel('E-mail').fill(email);
+  await page.getByLabel('Mot de passe', { exact: true }).fill(password);
+  await page.getByLabel('Confirmer le mot de passe').fill(password);
+  await page.getByRole('button', { name: 'Créer mon compte' }).click();
+
+  await page.waitForURL('**/compte', { timeout: 20_000 });
+  await page.getByRole('heading', { name: `Bonjour ${name}` }).waitFor({ state: 'visible' });
+  await page.waitForTimeout(400);
+  await fullShot(page, path.join(out, `account-profile-${suffix}.png`));
+
+  await page.getByRole('link', { name: 'Commandes', exact: true }).click();
+  await page.getByRole('heading', { name: 'Commandes' }).waitFor({ state: 'visible' });
+  await page.waitForTimeout(400);
+  await fullShot(page, path.join(out, `account-orders-${suffix}.png`));
+
+  await page.getByRole('link', { name: 'Adresses', exact: true }).click();
+  await page.getByRole('button', { name: 'Ajouter une adresse' }).click();
+  await page.getByLabel('Libellé').fill('Maison');
+  await page.getByLabel('Nom du destinataire').fill(name);
+  await page.getByLabel('Téléphone').fill(phone);
+  await page.getByLabel('Ville').selectOption('casablanca');
+  await page.getByLabel('Quartier').fill('Maarif');
+  await page.getByLabel('Adresse', { exact: true }).fill('12 rue des Orangers');
+  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  await page.getByText('Par défaut', { exact: true }).waitFor({ state: 'visible', timeout: 15_000 });
+  await page.waitForTimeout(600);
+  await fullShot(page, path.join(out, `account-addresses-${suffix}.png`));
+
+  await page.goto(`${base}/produit/luphera-noir`, { waitUntil: 'networkidle' });
+  await page.getByRole('button', { name: 'Ajouter aux favoris' }).click();
+  await page.getByRole('button', { name: 'Retirer des favoris' }).waitFor({ timeout: 10_000 });
+
+  await page.goto(`${base}/compte/favoris`, { waitUntil: 'networkidle' });
+  await page.getByRole('link', { name: 'Luphéra Noir', exact: true }).waitFor({ state: 'visible' });
+  await page.waitForTimeout(400);
+  await fullShot(page, path.join(out, `account-wishlist-${suffix}.png`));
+
+  await page.close();
+}
+
+if (flow !== 'account') {
+  await captureFlow(1440, 900, '1440');
+  await captureFlow(390, 844, '390');
+}
+
+if (flow !== 'flow') {
+  await captureAccount(1440, 900, '1440');
+  await captureAccount(390, 844, '390');
+}
 
 await browser.close();
 console.log(`Screens written to ${out}`);

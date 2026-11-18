@@ -7,8 +7,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchProduct, fetchRelatedProducts } from '@/features/catalog/api';
 import type { ProductDetail, ProductSummary } from '@/features/catalog/types';
 import { CartContext, type CartContextValue } from '@/features/cart/useCart';
+import { AuthContext } from '@/features/auth/useAuth';
 import { ApiError } from '@/lib/api/client';
 import { ProductPage } from '@/pages/ProductPage';
+import { authValue } from '@/test/auth';
 
 vi.mock('@/features/catalog/api', () => ({
   fetchProducts: vi.fn(),
@@ -121,13 +123,15 @@ function renderProduct(initialEntry = '/produit/luphera-noir') {
 
   return render(
     <QueryClientProvider client={client}>
-      <CartContext.Provider value={cartValue}>
-        <MemoryRouter initialEntries={[initialEntry]}>
-          <Routes>
-            <Route path="produit/:slug" element={<ProductPage />} />
-          </Routes>
-        </MemoryRouter>
-      </CartContext.Provider>
+      <AuthContext.Provider value={authValue()}>
+        <CartContext.Provider value={cartValue}>
+          <MemoryRouter initialEntries={[initialEntry]}>
+            <Routes>
+              <Route path="produit/:slug" element={<ProductPage />} />
+            </Routes>
+          </MemoryRouter>
+        </CartContext.Provider>
+      </AuthContext.Provider>
     </QueryClientProvider>,
   );
 }

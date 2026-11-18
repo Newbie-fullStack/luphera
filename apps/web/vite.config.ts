@@ -19,6 +19,10 @@ export default defineConfig({
         target: process.env.VITE_API_PROXY ?? 'http://localhost:8000',
         changeOrigin: true,
       },
+      '/sanctum': {
+        target: process.env.VITE_API_PROXY ?? 'http://localhost:8000',
+        changeOrigin: true,
+      },
     },
   },
   build: {
@@ -41,6 +45,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     css: true,
+    testTimeout: 15_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],

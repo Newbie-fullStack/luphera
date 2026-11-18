@@ -4,7 +4,7 @@
 
 Maison marocaine d'eaux de parfum. Monorepo de la boutique : API Laravel 12, storefront React 19, MySQL 8.
 
-> **État : phase 2 — panier et commande.** Le catalogue, le panier serveur, les coupons, la livraison par ville et la commande sans compte sont livrés. Les prix, stocks, frais de livraison et le code `LUPHERA10` sont des données de démonstration (`seed`) et ne doivent pas être présentés comme réels.
+> **État : phase 3 — comptes clients.** Le catalogue, le panier serveur, les coupons, la livraison par ville, la commande sans compte, puis le compte client (session, profil, adresses, favoris, historique et facture) sont livrés. Les prix, stocks, frais de livraison et le code `LUPHERA10` sont des données de démonstration (`seed`) et ne doivent pas être présentés comme réels.
 
 ## Sommaire
 
@@ -35,6 +35,8 @@ make seed                     # rôles, permissions, compte admin local et catal
 | Fiche produit | http://localhost:5173/produit/luphera-noir |
 | Commande | http://localhost:5173/commande |
 | Suivi de commande | http://localhost:5173/suivi |
+| Connexion | http://localhost:5173/connexion |
+| Compte client | http://localhost:5173/compte |
 | Design system | http://localhost:5173/design-system |
 | API | http://localhost:8000/api/v1 |
 | Meilisearch | http://localhost:7700 |
@@ -77,10 +79,12 @@ apps/
     src/app/      routes et error boundary
     src/components/  layout, ui, three
     src/features/ catalogue : types, API, hooks, cartes, filtres
+    src/features/auth/   session : contexte, schémas Zod, formulaires
+    src/features/account/ profil, commandes, adresses, favoris, garde de route
     src/features/cart/   panier : contexte, API, tiroir
     src/features/orders/ commande : schéma, suivi, stockage du jeton
-    src/lib/      api client, formatage, téléphone, debounce
-    src/pages/    pages publiques (accueil, boutique, fiche, commande, suivi)
+    src/lib/      api client (CSRF), formatage, téléphone, debounce
+    src/pages/    pages publiques et formulaires d'authentification
     src/styles/   tokens Tailwind 4 et composants CSS
     src/i18n/     ressources françaises (arabe en phase 7)
 docs/             DECISIONS.md, API.md, RUNBOOK.md, screens/
@@ -96,6 +100,7 @@ Règles structurantes :
 - Les identifiants publics sont des ULID, les clés primaires restent des entiers.
 - Les rôles vivent uniquement dans `spatie/laravel-permission`.
 - Les textes visibles sont en français et centralisés dans `apps/web/src/i18n/locales/fr.json` ; le code, les tables, les routes et les commentaires sont en anglais.
+- L'authentification passe par une session Sanctum (`httpOnly`) : le navigateur n'obtient aucun token, et les mutations renvoient le cookie `XSRF-TOKEN` en `X-XSRF-TOKEN`.
 
 ## Commandes
 
@@ -111,7 +116,7 @@ Règles structurantes :
 | `make test` | Tests API + tests web |
 | `make lint` | Pint, PHPStan, ESLint, TypeScript |
 | `make build-web` | Build de production du storefront |
-| `make screens` | Régénère `docs/screens/` (serveur de preview sur 4173) |
+| `make screens` | Régénère `docs/screens/` (serveur de preview sur 4173 ; `SCREEN_FLOW=account` pour les seuls écrans de compte) |
 
 Côté web : `npm run dev`, `npm run build`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run test:run`, `npm run test:smoke` (serveur de preview requis), `npm run format`.
 Côté API : `php artisan test`, `vendor/bin/pint`, `vendor/bin/phpstan analyse`.
@@ -133,7 +138,7 @@ Créés uniquement en `local` et `testing` par `RolesAndPermissionsSeeder`.
 | --- | --- | --- |
 | Admin | `+212600000001` | `password` |
 
-Le téléphone est l'identifiant de connexion. Les autres rôles (`manager`, `support`, `customer`) sont définis dans le seeder et n'ont pas de compte par défaut.
+Le téléphone est l'identifiant de connexion. Les autres rôles (`manager`, `support`, `customer`) sont définis dans le seeder et n'ont pas de compte par défaut ; un compte client se crée depuis `/inscription`.
 
 ## Design system
 
@@ -144,20 +149,20 @@ Le téléphone est l'identifiant de connexion. Les autres rôles (`manager`, `su
 - Polices auto-hébergées dans `apps/web/public/fonts/`.
 - Courbe unique : `cubic-bezier(.22,.61,.12,1)` (`--ease-lux`), durées ≥ 400 ms.
 - `prefers-reduced-motion` désactive animations et transitions.
-- Captures : `docs/screens/home-1440.png`, `home-390.png`, `shop-1440.png`, `shop-390.png`, `product-1440.png`, `product-390.png`, `cart-1440.png`, `cart-390.png`, `checkout-1440.png`, `checkout-390.png`, `confirmation-1440.png`, `confirmation-390.png`, `tracking-1440.png`, `tracking-390.png`, `design-system-1440.png`, `design-system-390.png`.
+- Captures : `docs/screens/home-1440.png`, `home-390.png`, `shop-1440.png`, `shop-390.png`, `product-1440.png`, `product-390.png`, `cart-1440.png`, `cart-390.png`, `checkout-1440.png`, `checkout-390.png`, `confirmation-1440.png`, `confirmation-390.png`, `tracking-1440.png`, `tracking-390.png`, `account-login-1440.png`, `account-login-390.png`, `account-profile-1440.png`, `account-profile-390.png`, `account-orders-1440.png`, `account-orders-390.png`, `account-addresses-1440.png`, `account-addresses-390.png`, `account-wishlist-1440.png`, `account-wishlist-390.png`, `design-system-1440.png`, `design-system-390.png`.
 
 ## Tests et qualité
 
-| Suite | Commande | État phase 2 |
+| Suite | Commande | État phase 3 |
 | --- | --- | --- |
-| API (Pest) | `cd apps/api && php artisan test` | 67 tests verts (325 assertions) |
+| API (Pest) | `cd apps/api && php artisan test` | 100 tests verts (447 assertions) |
 | API style | `vendor/bin/pint --test` | vert |
 | API statique | `vendor/bin/phpstan analyse` | niveau 6, vert |
-| Web (Vitest) | `cd apps/web && npm run test:run` | 78 tests verts |
+| Web (Vitest) | `cd apps/web && npm run test:run` | 97 tests verts (20 fichiers) |
 | Web lint | `npm run lint` | vert |
 | Web types | `npm run typecheck` | vert |
 | Web build | `npm run build` | vert |
-| Web smoke (routes, console, débordement) | `npm run test:smoke` | 12/12 vert |
+| Web smoke (routes, console, débordement) | `npm run test:smoke` | 22/22 vert |
 | Parcours d'achat | `node scripts/journey.mjs` | 20/20 vert (360 et 1440) |
 
 La CI GitHub Actions (`.github/workflows/ci.yml`) rejoue ces étapes sur PHP 8.3 et Node 24, valide `docker compose config` et vérifie les préfixes de commit conventionnels sur les pull requests.
@@ -176,6 +181,9 @@ La CI GitHub Actions (`.github/workflows/ci.yml`) rejoue ces étapes sur PHP 8.3
 - Horizon, les workers de queue et le scheduler ne tournent pas sous Windows.
 - Meilisearch, MinIO et Redis ne sont pas nécessaires aux tests : SQLite, cache array et session array suffisent.
 - Aucune passerelle de paiement, aucun envoi d'e-mail réel, aucun texte légal définitif : ces éléments sont marqués `[à compléter]`.
+- Le changement de téléphone n'est pas encore possible depuis le compte : il exige une vérification par SMS, marquée `[à compléter]`.
+- Les commandes invité ne rejoignent un compte qu'à l'inscription, si le téléphone normalisé correspond ; une connexion ne réclame jamais de commande.
+- La facture PDF n'est disponible que pour une commande `delivered` ; ses mentions légales restent `[à compléter]`.
 - Le parcours d'achat consomme du stock : relancer `php artisan migrate:fresh --seed` avant de rejouer `scripts/journey.mjs` ou `scripts/screens.mjs`.
 - Les frais de livraison par ville et le coupon `LUPHERA10` viennent de `CommerceSeeder` : ce sont des valeurs provisoires, à remplacer par le contrat transporteur et les conditions réelles.
 
@@ -186,7 +194,7 @@ La CI GitHub Actions (`.github/workflows/ci.yml`) rejoue ces étapes sur PHP 8.3
 | 0 | Monorepo, Docker, CI, design system, décisions | livrée |
 | 1 | Catalogue, seeders, API produits, boutique, fiche, recherche | livrée (catalogue de démonstration) |
 | 2 | Panier serveur, coupons, livraison, commande idempotente, stock | livrée (frais et coupon de démonstration) |
-| 3 | Compte client, adresses, historique | à venir |
+| 3 | Compte client (session Sanctum), adresses, favoris, historique, facture | livrée |
 | 4 | Administration (produits, commandes, stocks, coupons) | à venir |
 | 5 | Contenus, pages maison, livraison, contact | à venir |
 | 6 | Scène 3D et animations avancées | à venir |
