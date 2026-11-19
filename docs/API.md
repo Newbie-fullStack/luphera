@@ -666,6 +666,251 @@ Favoris du client, du plus récent au plus ancien, sous la forme des fiches rés
 
 `{product}` est l'ULID public du produit. `200` avec `data: null` ; `404` `not_found` si le favori n'existe pas.
 
+## Endpoints phase 4 - back-office
+
+La console consomme la même session Sanctum que la boutique, mais le compte doit
+porter un rôle `admin`, `manager` ou `support`. Un client connecté reçoit `403`
+avec `errors.code = forbidden` : le back-office n'est pas secret, il est fermé.
+Un visiteur reçoit `401`. Les routes sont groupées par permission ; la console
+masque les actions à partir du tableau `permissions` renvoyé par `GET /admin/me`,
+jamais à partir du nom du rôle.
+
+### Matrice des droits
+
+| Permission | `admin` | `manager` | `support` |
+| --- | :-: | :-: | :-: |
+| `catalog.view` | ✔ | ✔ | ✔ |
+| `catalog.manage` | ✔ | ✔ | — |
+| `orders.view` | ✔ | ✔ | ✔ |
+| `orders.confirm` | ✔ | ✔ | ✔ |
+| `orders.manage` | ✔ | ✔ | — |
+| `customers.view` | ✔ | ✔ | ✔ |
+| `customers.manage` | ✔ | — | — |
+| `marketing.manage` | ✔ | ✔ | — |
+| `content.manage` | ✔ | ✔ | — |
+| `settings.manage` | ✔ | — | — |
+| `audit.view` | ✔ | — | — |
+| `reviews.moderate`, `messages.view`, `ai.use` | ✔ | ✔ | ✔/— |
+
+`admin` contourne toutes les vérifications par un `Gate::before` ; la matrice
+ci-dessus documente le comportement attendu, pas une liste dupliquée en base.
+
+### `POST /api/v1/admin/login`
+
+```json
+{ "identifier": "admin@luphera.test", "password": "password" }
+```
+
+`200` avec la ressource staff. `422` `invalid_credentials` si l'identifiant ou le
+mot de passe est faux — le message ne distingue jamais les deux cas. `403`
+`account_disabled` pour un compte désactivé, `403` `forbidden` pour un client
+sans rôle de back-office.
+
+### `POST /api/v1/admin/logout` et `GET /api/v1/admin/me`
+
+`logout` invalide la session et répond `200` avec `data: null`. `me` renvoie le
+compte courant :
+
+```json
+{
+  "data": {
+    "id": "01M7R7DWCSQ54W84BVQN1ZNJ8F",
+    "name": "Support Luphéra",
+    "phone": "+212600000003",
+    "email": "support@luphera.test",
+    "roles": ["support"],
+    "permissions": ["catalog.view", "customers.view", "orders.confirm", "orders.view"],
+    "last_login_at": "2026-11-18T21:04:11+00:00"
+  },
+  "meta": {},
+  "errors": []
+}
+```
+
+### `GET /api/v1/admin/dashboard`
+
+Agrégats des trente derniers jours, mis en cache cinq minutes :
+
+```json
+{
+  "data": {
+    "revenue_30d_cents": 47500,
+    "orders_30d": 1,
+    "orders_today": 1,
+    "orders_pending": 1,
+    "average_basket_30d_cents": 47500,
+    "confirmation_rate_30d": 0,
+    "customers_total": 1,
+    "customers_new_30d": 1,
+    "low_stock": [
+      {
+        "id": "01M7R7DWCSQ54W84BVQN1ZNJ8F",
+        "sku": "LPH-AMBRE-100",
+        "label": "100 ml",
+        "stock": 4,
+        "threshold": 5,
+        "product": { "slug": "luphera-ambre", "name": "Luphéra Ambre" }
+      }
+    ],
+    "top_products": [{ "name": "Luphéra Noir", "quantity": 1, "revenue_cents": 45000 }],
+    "sales_by_city": [{ "city": "Casablanca", "orders": 1, "revenue_cents": 47500 }],
+    "series": [{ "date": "2026-10-20", "orders": 0, "revenue_cents": 0 }]
+  },
+  "meta": {},
+  "errors": []
+}
+```
+
+`revenue_30d_cents` ignore les commandes annulées ; `series` couvre toujours
+trente entrées, jours vides compris.
+
+### `GET /api/v1/admin/orders`
+
+Filtres : `status`, `city`, `q` (numéro, nom ou téléphone), `from`, `to`, `page`.
+La file place les commandes `pending` en tête, puis trie par date décroissante.
+Chaque ligne reprend la ressource publique de commande plus `items_count` et
+`needs_confirmation`.
+
+### `GET /api/v1/admin/orders/{number}`
+
+Ressource publique enrichie de `items_count`, `needs_confirmation` et de
+l'historique :
+
+```json
+{
+  "events": [
+    {
+      "status": "confirmed",
+      "at": "2026-11-18T21:12:44+00:00",
+      "author": "Support Luphéra",
+      "comment": "Client joint, adresse confirmée."
+    }
+  ]
+}
+```
+
+### `PATCH /api/v1/admin/orders/{number}/status`
+
+```json
+{ "status": "shipped", "carrier": "Amana", "tracking_number": "AMN-123456", "comment": "Départ entrepôt" }
+```
+
+`status` doit être une transition légale de l'enum. `orders.confirm` autorise
+uniquement `pending → confirmed` ; toute autre transition exige `orders.manage`.
+`422` `invalid_transition` sinon. `carrier` et `tracking_number` sont attendus
+pour `shipped`.
+
+### `GET /api/v1/admin/orders/{number}/packing-slip`
+
+PDF texte (bon de livraison) : articles, quantités, adresse, aucun prix.
+
+### `GET /api/v1/admin/orders/export`
+
+CSV des commandes filtrées, mêmes filtres que la liste.
+
+### `GET|POST /api/v1/admin/products`, `GET|PATCH|DELETE /api/v1/admin/products/{product}`
+
+`{product}` est l'ULID public. La liste accepte `q`, `status`, `line`, `page` et
+renvoie pour chaque produit `variants_count`, `stock_total` et le prix
+d'entrée. La fiche complète ajoute description, notes olfactives, variantes,
+médias et bloc SEO.
+
+`DELETE` archive : le produit reste lisible dans l'historique des commandes et
+disparaît du catalogue public. `POST /publish` et `POST /unpublish` changent le
+statut sans passer par `PATCH`.
+
+### Variantes, notes et médias
+
+| Route | Effet |
+| --- | --- |
+| `POST /admin/products/{product}/variants` | Crée une variante (`sku`, `size_ml`, `price_cents`, `stock`, `low_stock_threshold`, `is_default`) |
+| `PATCH/DELETE /admin/variants/{variant}` | Met à jour ou supprime une variante |
+| `PUT /admin/products/{product}/notes` | Remplace la pyramide olfactive (`notes[]` avec `level` et `name`) |
+| `POST /admin/products/{product}/media` | Ajoute un média (`url`, `alt`, `position`) |
+| `PATCH/DELETE /admin/media/{media}` | Met à jour ou supprime un média |
+
+Chaque écriture répond avec la fiche produit complète et journalise une ligne
+d'audit.
+
+### `GET /api/v1/admin/stock` et `GET /admin/stock/movements`
+
+`GET /stock` liste les variantes (`q`, `low=1`, `page`) avec `stock`,
+`threshold` et `status` (`in_stock`, `low_stock`, `out_of_stock`).
+`GET /stock/movements` renvoie les trente derniers mouvements, filtrables par
+`variant_id` (ULID) : date, SKU, produit, motif, quantité signée, auteur, note.
+
+### `POST /api/v1/admin/stock/adjust`
+
+```json
+{ "variant_id": "01M7R7DWCSQ54W84BVQN1ZNJ8F", "delta": -2, "reason": "adjust", "note": "Casse en boutique" }
+```
+
+`reason` vaut `restock` ou `adjust`. `422` `negative_stock` si le stock
+deviendrait négatif. Réponse : `id`, `sku`, `stock`, `status`.
+
+### `POST /api/v1/admin/stock/import` et `GET /admin/stock/export`
+
+Import `multipart/form-data` d'un CSV `sku;stock`. La valeur cible remplace le
+stock actuel ; les lignes invalides sont rapportées sans annuler les autres :
+
+```json
+{ "updated": 12, "errors": [{ "line": 4, "message": "SKU inconnu : LPH-XXX" }] }
+```
+
+L'export produit le même format.
+
+### `GET /api/v1/admin/customers`, `GET /admin/customers/{customer}`
+
+`{customer}` est l'ULID public. La liste accepte `q`, `active` et `page` et
+renvoie `orders_count`, `spent_cents` (commandes non annulées), `last_order_at`,
+`is_active`. La fiche ajoute segment (`vip`, `new`, `regular`, `inactive`),
+adresses, commandes et notes internes.
+
+### `PATCH /api/v1/admin/customers/{customer}` et `POST /admin/customers/{customer}/notes`
+
+`{ "is_active": false }` désactive le compte (la connexion répond alors `403`
+`account_disabled`). Les notes sont horodatées et attribuées à leur auteur ;
+elles ne sont jamais visibles côté boutique.
+
+### `GET|POST /api/v1/admin/coupons`, `PATCH|DELETE /api/v1/admin/coupons/{coupon}`
+
+`{coupon}` est l'identifiant entier. Un coupon déjà utilisé est désactivé au
+lieu d'être supprimé ; la réponse indique alors le coupon désactivé.
+
+### `GET|PUT /api/v1/admin/settings`
+
+Payload imbriqué, valeurs effectives (repli de configuration inclus) :
+
+```json
+{
+  "brand": { "tagline": "Avancer sans bruit, laisser une trace d'or.", "whatsapp": "[à compléter]", "email": "[à compléter]" },
+  "announcement": { "text": "", "active": false },
+  "shipping": { "flat_fee_cents": 3500, "free_threshold_cents": 80000 }
+}
+```
+
+Seules ces clés sont acceptées ; les autres sont ignorées. Toute modification
+est journalisée avec l'écart avant/après.
+
+### `GET|POST /api/v1/admin/pages`, `GET|PATCH|DELETE /api/v1/admin/pages/{page}`
+
+`{page}` est l'identifiant entier. Champs : `title`, `slug`, `body`,
+`meta_title`, `meta_description`, `is_published`. Le slug est dérivé du titre
+quand il est absent ; une page publiée est lisible via l'API publique.
+
+### `GET /api/v1/admin/audit-logs` et `GET /admin/audit-logs/actions`
+
+Journal append-only, filtrable par `action`, `q`, `from`, `to`, `page`. Chaque
+entrée porte `action`, `subject_type`, `subject_label`, `author`, `ip`,
+`user_agent` et `changes` (écart avant/après, `null` si sans objet).
+`/actions` liste les actions distinctes pour alimenter le filtre.
+
+### `GET /api/v1/pages` et `GET /api/v1/pages/{slug}`
+
+Endpoints publics, sans authentification : uniquement les pages publiées. `404`
+`not_found` pour un brouillon ou un slug inconnu. La liste est triée par
+`position` puis par titre.
+
 ## Spécification OpenAPI
 
 ```yaml
@@ -692,6 +937,10 @@ tags:
     description: Commande sans compte et suivi public
   - name: Account
     description: Session, profil, adresses, favoris et facture du client
+  - name: Content
+    description: Pages éditoriales publiées
+  - name: Back-office
+    description: Console de gestion réservée aux rôles staff
 paths:
   /:
     get:
@@ -1653,6 +1902,860 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /pages:
+    get:
+      tags: [Content]
+      summary: Pages éditoriales publiées
+      operationId: listPages
+      responses:
+        '200':
+          description: Pages publiées, triées par position
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageListEnvelope'
+  /pages/{slug}:
+    get:
+      tags: [Content]
+      summary: Lire une page publiée
+      operationId: getPage
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Page publiée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageEnvelope'
+        '404':
+          description: Brouillon ou slug inconnu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/login:
+    post:
+      tags: [Back-office]
+      summary: Ouvrir une session staff
+      operationId: adminLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Session ouverte
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffEnvelope'
+        '403':
+          description: Compte désactivé ou sans rôle staff
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Identifiants incorrects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/logout:
+    post:
+      tags: [Back-office]
+      summary: Fermer la session staff
+      operationId: adminLogout
+      security:
+        - sanctumCookie: []
+      responses:
+        '200':
+          description: Session fermée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NullEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+  /admin/me:
+    get:
+      tags: [Back-office]
+      summary: Compte staff courant et permissions
+      operationId: adminMe
+      security:
+        - sanctumCookie: []
+      responses:
+        '200':
+          description: Compte staff
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          description: Session client sans rôle staff
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/dashboard:
+    get:
+      tags: [Back-office]
+      summary: Agrégats du tableau de bord
+      operationId: adminDashboard
+      security:
+        - sanctumCookie: []
+      responses:
+        '200':
+          description: Indicateurs des trente derniers jours
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          description: Permission `orders.view` manquante
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/orders:
+    get:
+      tags: [Back-office]
+      summary: File de commandes
+      operationId: adminListOrders
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, preparing, shipped, delivered, cancelled, returned, failed_delivery]
+        - name: city
+          in: query
+          schema:
+            type: string
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Commandes, `pending` en tête
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          description: Permission manquante
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/orders/{number}:
+    get:
+      tags: [Back-office]
+      summary: Détail d'une commande avec son historique
+      operationId: adminShowOrder
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Commande complète
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderEnvelope'
+        '404':
+          description: Commande inconnue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/orders/{number}/status:
+    patch:
+      tags: [Back-office]
+      summary: Changer le statut d'une commande
+      operationId: adminTransitionOrder
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderTransitionRequest'
+      responses:
+        '200':
+          description: Commande mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderEnvelope'
+        '422':
+          description: Transition illégale ou transporteur manquant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/orders/{number}/packing-slip:
+    get:
+      tags: [Back-office]
+      summary: Bon de livraison PDF
+      operationId: adminPackingSlip
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: PDF sans prix
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+  /admin/products:
+    get:
+      tags: [Back-office]
+      summary: Liste du catalogue, archives comprises
+      operationId: adminListProducts
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, active, archived]
+        - name: line
+          in: query
+          schema:
+            type: string
+            enum: [homme, femme, coffret]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Produits avec variantes et stock agrégé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductListEnvelope'
+    post:
+      tags: [Back-office]
+      summary: Créer un produit en brouillon
+      operationId: adminStoreProduct
+      security:
+        - sanctumCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminProductInput'
+      responses:
+        '201':
+          description: Produit créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductEnvelope'
+        '422':
+          description: Validation échouée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/products/{product}:
+    get:
+      tags: [Back-office]
+      summary: Fiche produit complète
+      operationId: adminShowProduct
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: product
+          in: path
+          required: true
+          schema:
+            type: string
+            description: ULID public
+      responses:
+        '200':
+          description: Produit, variantes, notes, médias, SEO
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductEnvelope'
+        '404':
+          description: Produit inconnu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    patch:
+      tags: [Back-office]
+      summary: Mettre à jour un produit
+      operationId: adminUpdateProduct
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: product
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminProductInput'
+      responses:
+        '200':
+          description: Produit mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductEnvelope'
+        '422':
+          description: Validation échouée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    delete:
+      tags: [Back-office]
+      summary: Archiver un produit
+      operationId: adminArchiveProduct
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: product
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Produit archivé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductEnvelope'
+  /admin/products/{product}/publish:
+    post:
+      tags: [Back-office]
+      summary: Publier un produit
+      operationId: adminPublishProduct
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: product
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Produit publié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductEnvelope'
+  /admin/products/{product}/unpublish:
+    post:
+      tags: [Back-office]
+      summary: Repasser un produit en brouillon
+      operationId: adminUnpublishProduct
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: product
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Produit en brouillon
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductEnvelope'
+  /admin/stock:
+    get:
+      tags: [Back-office]
+      summary: Stock par variante
+      operationId: adminStock
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: low
+          in: query
+          description: Ne garder que les variantes sous le seuil
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Variantes avec seuil et statut
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockRowListEnvelope'
+  /admin/stock/adjust:
+    post:
+      tags: [Back-office]
+      summary: Ajuster le stock d'une variante
+      operationId: adminAdjustStock
+      security:
+        - sanctumCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [variant_id, delta, reason]
+              properties:
+                variant_id:
+                  type: string
+                  description: ULID public de la variante
+                delta:
+                  type: integer
+                  description: Positif pour une entrée, négatif pour une sortie
+                reason:
+                  type: string
+                  enum: [restock, adjust]
+                note:
+                  type: [string, 'null']
+                  maxLength: 190
+      responses:
+        '200':
+          description: Stock mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockRowEnvelope'
+        '422':
+          description: Stock négatif refusé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/stock/movements:
+    get:
+      tags: [Back-office]
+      summary: Derniers mouvements de stock
+      operationId: adminStockMovements
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: variant_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Mouvements du plus récent au plus ancien
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementListEnvelope'
+  /admin/customers:
+    get:
+      tags: [Back-office]
+      summary: Liste des clients
+      operationId: adminListCustomers
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: active
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Clients avec commandes et dépenses agrégées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCustomerListEnvelope'
+  /admin/customers/{customer}:
+    get:
+      tags: [Back-office]
+      summary: Fiche client
+      operationId: adminShowCustomer
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: customer
+          in: path
+          required: true
+          schema:
+            type: string
+            description: ULID public
+      responses:
+        '200':
+          description: Client, adresses, commandes et notes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCustomerEnvelope'
+    patch:
+      tags: [Back-office]
+      summary: Activer ou désactiver un compte
+      operationId: adminUpdateCustomer
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: customer
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [is_active]
+              properties:
+                is_active:
+                  type: boolean
+      responses:
+        '200':
+          description: Client mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCustomerEnvelope'
+  /admin/coupons:
+    get:
+      tags: [Back-office]
+      summary: Liste des coupons
+      operationId: adminListCoupons
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Coupons avec compteur d'utilisation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CouponListEnvelope'
+    post:
+      tags: [Back-office]
+      summary: Créer un coupon
+      operationId: adminStoreCoupon
+      security:
+        - sanctumCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CouponInput'
+      responses:
+        '201':
+          description: Coupon créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CouponEnvelope'
+  /admin/coupons/{coupon}:
+    patch:
+      tags: [Back-office]
+      summary: Mettre à jour un coupon
+      operationId: adminUpdateCoupon
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: coupon
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CouponInput'
+      responses:
+        '200':
+          description: Coupon mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CouponEnvelope'
+    delete:
+      tags: [Back-office]
+      summary: Supprimer ou désactiver un coupon
+      operationId: adminDestroyCoupon
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: coupon
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Coupon supprimé, ou désactivé s'il a déjà servi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CouponEnvelope'
+  /admin/settings:
+    get:
+      tags: [Back-office]
+      summary: Réglages éditables
+      operationId: adminSettings
+      security:
+        - sanctumCookie: []
+      responses:
+        '200':
+          description: Valeurs effectives
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopSettingsEnvelope'
+    put:
+      tags: [Back-office]
+      summary: Enregistrer les réglages
+      operationId: adminUpdateSettings
+      security:
+        - sanctumCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShopSettings'
+      responses:
+        '200':
+          description: Réglages enregistrés
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopSettingsEnvelope'
+  /admin/pages:
+    get:
+      tags: [Back-office]
+      summary: Toutes les pages, brouillons compris
+      operationId: adminListPages
+      security:
+        - sanctumCookie: []
+      responses:
+        '200':
+          description: Pages triées par position
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageListEnvelope'
+    post:
+      tags: [Back-office]
+      summary: Créer une page
+      operationId: adminStorePage
+      security:
+        - sanctumCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageInput'
+      responses:
+        '201':
+          description: Page créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageEnvelope'
+  /admin/pages/{page}:
+    get:
+      tags: [Back-office]
+      summary: Lire une page
+      operationId: adminShowPage
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: page
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Page complète
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageEnvelope'
+    patch:
+      tags: [Back-office]
+      summary: Mettre à jour une page
+      operationId: adminUpdatePage
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: page
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageInput'
+      responses:
+        '200':
+          description: Page mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageEnvelope'
+    delete:
+      tags: [Back-office]
+      summary: Supprimer une page
+      operationId: adminDestroyPage
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: page
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Page supprimée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NullEnvelope'
+  /admin/audit-logs:
+    get:
+      tags: [Back-office]
+      summary: Journal d'audit
+      operationId: adminAuditLogs
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Entrées append-only
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogListEnvelope'
 components:
   securitySchemes:
     sanctumCookie:
@@ -2647,6 +3750,793 @@ components:
           $ref: '#/components/schemas/Meta'
         errors:
           $ref: '#/components/schemas/Error'
+    Staff:
+      type: object
+      required: [id, name, phone, roles, permissions]
+      properties:
+        id:
+          type: string
+          description: ULID public
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: [string, 'null']
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [admin, manager, support]
+        permissions:
+          type: array
+          description: Permissions effectives, triées
+          items:
+            type: string
+            examples: ['orders.view']
+        last_login_at:
+          type: [string, 'null']
+          format: date-time
+    StaffEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          $ref: '#/components/schemas/Staff'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    Dashboard:
+      type: object
+      required:
+        - revenue_30d_cents
+        - orders_30d
+        - orders_pending
+        - series
+      properties:
+        revenue_30d_cents:
+          type: integer
+          description: Commandes non annulées
+        orders_30d:
+          type: integer
+        orders_today:
+          type: integer
+        orders_pending:
+          type: integer
+        average_basket_30d_cents:
+          type: integer
+        confirmation_rate_30d:
+          type: integer
+          description: Pourcentage entier
+        customers_total:
+          type: integer
+        customers_new_30d:
+          type: integer
+        low_stock:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockRow'
+        top_products:
+          type: array
+          items:
+            type: object
+            required: [name, quantity, revenue_cents]
+            properties:
+              name:
+                type: string
+              quantity:
+                type: integer
+              revenue_cents:
+                type: integer
+        sales_by_city:
+          type: array
+          items:
+            type: object
+            required: [city, orders, revenue_cents]
+            properties:
+              city:
+                type: string
+              orders:
+                type: integer
+              revenue_cents:
+                type: integer
+        series:
+          type: array
+          description: Toujours trente entrées, jours vides compris
+          items:
+            type: object
+            required: [date, orders, revenue_cents]
+            properties:
+              date:
+                type: string
+                format: date
+              orders:
+                type: integer
+              revenue_cents:
+                type: integer
+    DashboardEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          $ref: '#/components/schemas/Dashboard'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    AdminOrderSummary:
+      allOf:
+        - $ref: '#/components/schemas/Order'
+        - type: object
+          required: [items_count, needs_confirmation]
+          properties:
+            items_count:
+              type: integer
+            needs_confirmation:
+              type: boolean
+    AdminOrder:
+      allOf:
+        - $ref: '#/components/schemas/AdminOrderSummary'
+        - type: object
+          required: [events]
+          properties:
+            events:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderEvent'
+    AdminOrderListEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminOrderSummary'
+        meta:
+          type: object
+          required: [current_page, last_page, per_page, total]
+          properties:
+            current_page:
+              type: integer
+            last_page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+        errors:
+          type: array
+          maxItems: 0
+    AdminOrderEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminOrder'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    OrderTransitionRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [confirmed, preparing, shipped, delivered, cancelled, returned, failed_delivery]
+        carrier:
+          type: [string, 'null']
+          description: Attendu pour `shipped`
+        tracking_number:
+          type: [string, 'null']
+        comment:
+          type: [string, 'null']
+          maxLength: 500
+    AdminProductSummary:
+      type: object
+      required: [id, slug, name, line, status, variants_count, stock_total, from_price_cents]
+      properties:
+        id:
+          type: string
+          description: ULID public
+        slug:
+          type: string
+        name:
+          type: string
+        line:
+          type: string
+          enum: [homme, femme, coffret]
+        family:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, archived]
+        variants_count:
+          type: integer
+        stock_total:
+          type: integer
+        from_price_cents:
+          type: integer
+    AdminProduct:
+      allOf:
+        - $ref: '#/components/schemas/AdminProductSummary'
+        - type: object
+          properties:
+            tag:
+              type: [string, 'null']
+            short_description:
+              type: string
+            description:
+              type: string
+            intensity:
+              type: [integer, 'null']
+            longevity:
+              type: [integer, 'null']
+            sillage:
+              type: [integer, 'null']
+            season:
+              type: [string, 'null']
+            occasion:
+              type: [string, 'null']
+            variants:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductVariant'
+            notes:
+              type: array
+              items:
+                type: object
+                required: [level, name]
+                properties:
+                  level:
+                    type: string
+                    enum: [top, heart, base]
+                  name:
+                    type: string
+            media:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductMedia'
+            seo:
+              type: object
+              properties:
+                title:
+                  type: [string, 'null']
+                description:
+                  type: [string, 'null']
+    AdminProductInput:
+      type: object
+      required: [name, line, family, short_description, description]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        line:
+          type: string
+          enum: [homme, femme, coffret]
+        family:
+          type: string
+          maxLength: 64
+        tag:
+          type: [string, 'null']
+          maxLength: 32
+        short_description:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          minLength: 20
+        intensity:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 5
+        longevity:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 5
+        sillage:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 5
+        season:
+          type: [string, 'null']
+        occasion:
+          type: [string, 'null']
+        seo_title:
+          type: [string, 'null']
+          maxLength: 190
+        seo_description:
+          type: [string, 'null']
+          maxLength: 320
+    AdminProductListEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminProductSummary'
+        meta:
+          type: object
+          required: [current_page, last_page, per_page, total]
+          properties:
+            current_page:
+              type: integer
+            last_page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+        errors:
+          type: array
+          maxItems: 0
+    AdminProductEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminProduct'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    StockRow:
+      type: object
+      required: [id, sku, stock, threshold, status]
+      properties:
+        id:
+          type: string
+          description: ULID public de la variante
+        sku:
+          type: string
+        label:
+          type: [string, 'null']
+        stock:
+          type: integer
+        threshold:
+          type: integer
+        status:
+          type: string
+          enum: [in_stock, low_stock, out_of_stock]
+        product:
+          type: object
+          properties:
+            slug:
+              type: string
+            name:
+              type: string
+    StockRowEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          $ref: '#/components/schemas/StockRow'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    StockRowListEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockRow'
+        meta:
+          type: object
+          required: [current_page, last_page, per_page, total]
+          properties:
+            current_page:
+              type: integer
+            last_page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+        errors:
+          type: array
+          maxItems: 0
+    StockMovement:
+      type: object
+      required: [id, at, reason, quantity]
+      properties:
+        id:
+          type: integer
+        at:
+          type: string
+          format: date-time
+        sku:
+          type: [string, 'null']
+        product:
+          type: [string, 'null']
+        reason:
+          type: string
+          enum: [restock, adjust, order, return]
+        quantity:
+          type: integer
+          description: Signé
+        author:
+          type: [string, 'null']
+        note:
+          type: [string, 'null']
+    StockMovementListEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockMovement'
+        meta:
+          type: object
+          required: [current_page, last_page, per_page, total]
+          properties:
+            current_page:
+              type: integer
+            last_page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+        errors:
+          type: array
+          maxItems: 0
+    AdminCustomerSummary:
+      type: object
+      required: [id, name, phone, orders_count, spent_cents, is_active]
+      properties:
+        id:
+          type: string
+          description: ULID public
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: [string, 'null']
+        orders_count:
+          type: integer
+        spent_cents:
+          type: integer
+          description: Commandes non annulées
+        last_order_at:
+          type: [string, 'null']
+          format: date-time
+        is_active:
+          type: boolean
+        segment:
+          type: string
+          enum: [vip, new, regular, inactive]
+        created_at:
+          type: string
+          format: date-time
+    AdminCustomer:
+      allOf:
+        - $ref: '#/components/schemas/AdminCustomerSummary'
+        - type: object
+          properties:
+            marketing_opt_in:
+              type: boolean
+            last_login_at:
+              type: [string, 'null']
+              format: date-time
+            addresses:
+              type: array
+              items:
+                $ref: '#/components/schemas/Address'
+            orders:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminOrderSummary'
+            notes:
+              type: array
+              items:
+                type: object
+                required: [id, body, created_at]
+                properties:
+                  id:
+                    type: integer
+                  body:
+                    type: string
+                  author:
+                    type: [string, 'null']
+                  created_at:
+                    type: string
+                    format: date-time
+    AdminCustomerEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminCustomer'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    AdminCustomerListEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminCustomerSummary'
+        meta:
+          type: object
+          required: [current_page, last_page, per_page, total]
+          properties:
+            current_page:
+              type: integer
+            last_page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+        errors:
+          type: array
+          maxItems: 0
+    Coupon:
+      type: object
+      required: [id, code, type, value, used_count, is_active]
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        type:
+          type: string
+          enum: [percentage, fixed]
+        value:
+          type: integer
+          description: Pourcentage, ou centimes pour un montant fixe
+        max_discount_cents:
+          type: [integer, 'null']
+        min_subtotal_cents:
+          type: integer
+        starts_at:
+          type: [string, 'null']
+          format: date-time
+        ends_at:
+          type: [string, 'null']
+          format: date-time
+        max_uses:
+          type: [integer, 'null']
+        used_count:
+          type: integer
+        is_active:
+          type: boolean
+    CouponInput:
+      type: object
+      required: [code, type, value]
+      properties:
+        code:
+          type: string
+          maxLength: 32
+        type:
+          type: string
+          enum: [percentage, fixed]
+        value:
+          type: integer
+          minimum: 1
+        max_discount_cents:
+          type: [integer, 'null']
+        min_subtotal_cents:
+          type: integer
+          minimum: 0
+        starts_at:
+          type: [string, 'null']
+          format: date
+        ends_at:
+          type: [string, 'null']
+          format: date
+        max_uses:
+          type: [integer, 'null']
+          minimum: 1
+        is_active:
+          type: boolean
+    CouponEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          $ref: '#/components/schemas/Coupon'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    CouponListEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Coupon'
+        meta:
+          type: object
+          required: [current_page, last_page, per_page, total]
+          properties:
+            current_page:
+              type: integer
+            last_page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+        errors:
+          type: array
+          maxItems: 0
+    ShopSettings:
+      type: object
+      required: [brand, announcement, shipping]
+      properties:
+        brand:
+          type: object
+          required: [tagline, whatsapp, email]
+          properties:
+            tagline:
+              type: string
+            whatsapp:
+              type: string
+            email:
+              type: string
+        announcement:
+          type: object
+          required: [text, active]
+          properties:
+            text:
+              type: string
+            active:
+              type: boolean
+        shipping:
+          type: object
+          required: [flat_fee_cents, free_threshold_cents]
+          properties:
+            flat_fee_cents:
+              type: integer
+            free_threshold_cents:
+              type: integer
+    ShopSettingsEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          $ref: '#/components/schemas/ShopSettings'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    Page:
+      type: object
+      required: [id, slug, title, body, is_published]
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        meta_title:
+          type: [string, 'null']
+        meta_description:
+          type: [string, 'null']
+        is_published:
+          type: boolean
+        position:
+          type: integer
+        updated_at:
+          type: string
+          format: date-time
+    PageInput:
+      type: object
+      required: [title, body]
+      properties:
+        title:
+          type: string
+          maxLength: 160
+        slug:
+          type: [string, 'null']
+          description: Dérivé du titre quand absent
+        body:
+          type: string
+        meta_title:
+          type: [string, 'null']
+          maxLength: 190
+        meta_description:
+          type: [string, 'null']
+          maxLength: 320
+        is_published:
+          type: boolean
+    PageEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          $ref: '#/components/schemas/Page'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    PageListEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Page'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    AuditLogEntry:
+      type: object
+      required: [id, action, at]
+      properties:
+        id:
+          type: integer
+        action:
+          type: string
+          examples: ['product.updated']
+        subject_type:
+          type: [string, 'null']
+        subject_label:
+          type: [string, 'null']
+        author:
+          type: [string, 'null']
+        ip:
+          type: [string, 'null']
+        user_agent:
+          type: [string, 'null']
+        changes:
+          type: [object, 'null']
+          description: Écart avant/après
+        at:
+          type: string
+          format: date-time
+    AuditLogListEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogEntry'
+        meta:
+          type: object
+          required: [current_page, last_page, per_page, total]
+          properties:
+            current_page:
+              type: integer
+            last_page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+        errors:
+          type: array
+          maxItems: 0
 ```
 
 ## À venir
@@ -2656,7 +4546,8 @@ components:
 | ~~1~~ | ~~`GET /products`, `GET /products/{slug}`, `GET /products/{slug}/related`, `GET /bundles`~~ — livrés |
 | ~~2~~ | ~~`GET /cart`, `POST /cart/items`, `PATCH/DELETE /cart/items/{item}`, `POST/DELETE /cart/coupon`, `GET /shipping/cities`, `GET /shipping/quote`, `POST /orders`, `GET /orders/{number}`~~ — livrés |
 | ~~3~~ | ~~`POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password`, `GET/PATCH /me`, `GET /me/orders`, `GET /me/orders/{number}`, `GET /me/orders/{number}/invoice`, `GET/POST /me/addresses`, `PATCH/DELETE /me/addresses/{address}`, `GET/POST /me/wishlist`, `DELETE /me/wishlist/{product}`~~ — livrés |
-| 4 | `/admin/products`, `/admin/orders`, `/admin/stock`, `/admin/coupons` |
+| ~~4~~ | ~~`GET/POST /pages`, `GET /pages/{slug}`, `/admin/login`, `/admin/logout`, `/admin/me`, `/admin/dashboard`, `/admin/orders` (+ statut, bon de livraison, export), `/admin/products` (+ variantes, notes, médias, publication), `/admin/stock` (+ ajustement, import/export, mouvements), `/admin/customers` (+ notes), `/admin/coupons`, `/admin/settings`, `/admin/pages`, `/admin/audit-logs`~~ — livrés |
+| 5 | Messages de contact et avis clients (tables, écrans et modération) |
 | 6 | `POST /ai/chat` (budget de tokens plafonné) |
 
 Chaque ajout met à jour ce fichier et la spécification OpenAPI dans le même commit.

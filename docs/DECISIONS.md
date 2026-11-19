@@ -102,12 +102,30 @@ Chaque ligne documente un choix et sa justification. Une décision qui change es
 | 74 | Mot de passe oublié : même réponse que l'adresse existe ou non | Empêche d'énumérer les comptes par l'e-mail. |
 | 75 | Captures de compte rejouées par `scripts/screens.mjs` (`SCREEN_FLOW=account`) avec un client jetable | Les écrans de compte exigent une session réelle ; des données générées gardent les captures reproductibles. |
 | 76 | `testTimeout` Vitest porté à 15 s | La suite complète exécutée en parallèle dépassait le délai par défaut sur les tests de formulaire, sans échec réel. |
+| 77 | Back-office livré comme application séparée (`apps/admin`, port 5174) et non comme espace de la boutique | Les deux publics n'ont ni les mêmes permissions ni le même bundle : séparer évite d'expédier du code d'administration à un visiteur. |
+| 78 | Accès staff par `EnsureStaff` + rôles Spatie (`admin`, `manager`, `support`) ; alias `permission:` enregistrés dans `bootstrap/app.php` | Un seul point de contrôle par route, sans dupliquer la logique de rôle dans chaque contrôleur. |
+| 79 | Ressource d'un autre client : `404`. Route de back-office refusée : `403` avec `errors.code = forbidden` | Côté boutique, un `403` trahirait l'existence de la ressource ; côté console, l'opérateur a besoin de comprendre qu'il n'a pas le droit. |
+| 80 | `audit_logs` strictement append-only (aucune mise à jour, aucune suppression) avec auteur, IP et agent | Un journal réinscriptible ne prouve rien ; il doit rester la trace de ce qui s'est passé. |
+| 81 | Toute mutation du catalogue, des commandes, des clients, des coupons et des paramètres écrit une ligne d'audit avec l'écart avant/après | C'est la contrepartie du pouvoir donné au staff : chaque changement est attribuable. |
+| 82 | File de commandes triée `pending` d'abord ; `orders.confirm` suffit à confirmer, `orders.manage` est requis pour toute transition ultérieure | Le support doit pouvoir sécuriser une commande au téléphone sans pouvoir l'expédier. |
+| 83 | Un produit est archivé, jamais supprimé ; le catalogue public ignore les archives | Les commandes passées gardent leurs lignes et leurs liens produit. |
+| 84 | Chaque variation de stock écrit un `stock_movements` avec auteur et note (colonne ajoutée) | Un stock qui bouge sans trace rend les écarts inexplicables. |
+| 85 | Import CSV de stock au format `sku;stock` : la valeur cible remplace le stock, les erreurs sont rapportées ligne par ligne sans annuler les lignes valides | Un inventaire partiel vaut mieux qu'un import rejeté en bloc ; l'opérateur corrige ce qui reste. |
+| 86 | Un coupon déjà utilisé est désactivé au lieu d'être supprimé | La suppression casserait le lien avec les commandes qui l'ont consommé. |
+| 87 | Paramètres admin : payload imbriqué (`brand`, `announcement`, `shipping`) mappé sur des clés plates, et lecture des valeurs effectives avec le repli de configuration | Un formulaire vide alors que la boutique affiche une signature ferait douter de ce qui est réellement publié. |
+| 88 | Pages éditoriales créées en brouillon par défaut ; l'API publique ne sert que les pages publiées | Publier est un acte explicite : un texte légal ne doit jamais apparaître par accident. |
+| 89 | Agrégats du tableau de bord calculés en PHP et mis en cache cinq minutes | SQLite en local et MySQL en production n'ont pas la même syntaxe de regroupement ; le cache évite de recalculer à chaque affichage. |
+| 90 | L'interface masque les actions à partir du tableau `permissions` renvoyé par `GET /admin/me`, jamais à partir du nom du rôle | Les droits restent décidés par le serveur ; le front ne fait que refléter. |
+| 91 | Audit et captures du back-office rejoués par `scripts/audit-admin.mjs` et `scripts/screens.mjs` (`SCREEN_FLOW=admin`), avec une commande réellement créée via l'API publique | Un back-office se vérifie sur des données réelles : la commande doit exister, être confirmée par le support puis expédiée par le manager. |
 
 ## Écarts assumés
 
 | Écart | Raison | Suite |
 | --- | --- | --- |
-| `make up` non exécuté sur le poste de développement | Docker n'y est pas installé ; le compose est validé par `docker compose config` en CI. | À valider sur une machine Docker avant la phase 4. |
+| `make up` non exécuté sur le poste de développement | Docker n'y est pas installé ; le compose est validé par `docker compose config` en CI. | À valider sur une machine Docker. |
 | Horizon non démarrable sous Windows | Extensions `pcntl` et `posix` absentes du PHP local. | Fonctionne dans l'image Docker. |
 | Couverture web 59 % au global, 80–90 % sur le panier et la commande | Les pages éditoriales et les clients API restent couverts par Playwright ; l'objectif de 80 % s'applique aux domaines panier et commande, désormais atteint. | Compléter les tests de pages en phase 5 (contenus). |
 | Textes légaux, photos Femme, coordonnées | Non fournis par le client. | Marqués `[à compléter]`, jamais présentés comme définitifs. |
+| Pages éditoriales éditables mais pas encore lues par la boutique | L'API publique `GET /pages/{slug}` est livrée et testée ; les routes `/livraison` et `/mentions-legales` de la boutique utilisent encore l'écran d'attente. | Brancher les pages CMS sur la boutique en phase 5, quand le contenu sera rédigé. |
+| Messages de contact et avis clients non stockés | Aucune table dédiée ; les permissions `messages.view` et `reviews.moderate` existent déjà pour ne pas rejouer la migration des rôles. | Tables et écrans en phase 5. |
+| Bundle admin de 623 kB (182 kB gzip) sans découpage | Une seule route protégée, un seul public ; le découpage apportera peu tant que l'écran produit reste le plus lourd. | Découper l'éditeur produit si la mesure le justifie. |
