@@ -21,11 +21,12 @@ const shots = [
 ];
 
 // SCREEN_FLOW=account captures only the account pages, SCREEN_FLOW=flow only
-// the purchase journey. Unset means everything (the make target).
+// the purchase journey, SCREEN_FLOW=admin only the back-office. Unset means
+// the storefront (the make target).
 const flow = process.env.SCREEN_FLOW ?? 'all';
 
 for (const shot of shots) {
-  if (flow === 'account') break;
+  if (flow !== 'all') break;
   const page = await browser.newPage({
     viewport: { width: shot.width, height: shot.height },
     deviceScaleFactor: 1,
@@ -181,14 +182,156 @@ async function captureAccount(width, height, suffix) {
   await page.close();
 }
 
-if (flow !== 'account') {
+/**
+ * Phase 4 screens need a staff session. The database must be seeded with the
+ * demo accounts (admin@luphera.test / password). A pending order is created
+ * through the public API so the queue shows a real record, never a mock.
+ */
+const adminBase = process.env.ADMIN_BASE ?? 'http://localhost:5174';
+const adminApi = process.env.ADMIN_API ?? 'http://127.0.0.1:8000/api/v1';
+
+async function adminJson(pathname, options = {}) {
+  const response = await fetch(`${adminApi}${pathname}`, {
+    ...options,
+    headers: {
+      Accept: 'application/json',
+      ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...(options.headers ?? {}),
+    },
+  });
+
+  return response.json();
+}
+
+async function createAdminOrder() {
+  const cart = await adminJson('/cart');
+  const token = cart.meta.cart_token;
+  const product = await adminJson('/products/luphera-noir');
+
+  await adminJson('/cart/items', {
+    method: 'POST',
+    headers: { 'X-Cart-Token': token },
+    body: JSON.stringify({ variant_id: product.data.variants[0].id, quantity: 1 }),
+  });
+
+  const order = await adminJson('/orders', {
+    method: 'POST',
+    headers: { 'X-Cart-Token': token },
+    body: JSON.stringify({
+      customer_name: 'Salma Bennani',
+      phone: '0612345678',
+      city: 'casablanca',
+      district: 'Maarif',
+      address: '12 rue des Orangers',
+      landmark: 'En face de la pharmacie',
+      payment_method: 'cod',
+      terms: true,
+    }),
+  });
+
+  return order.data.number;
+}
+
+async function captureAdmin(width, height, suffix, full) {
+  const page = await browser.newPage({
+    viewport: { width, height },
+    deviceScaleFactor: 1,
+    reducedMotion: 'reduce',
+  });
+
+  const orderNumber = await createAdminOrder();
+
+  const shot = async (name) => {
+    await page
+      .locator('h1')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 })
+      .catch(() => null);
+    await page.waitForTimeout(450);
+    await page.screenshot({ path: path.join(out, `admin-${name}-${suffix}.png`) });
+  };
+
+  await page.goto(`${adminBase}/connexion`, { waitUntil: 'networkidle' });
+  await page.getByRole('heading', { name: 'Accès réservé' }).waitFor();
+  await shot('login');
+
+  await page.getByLabel('Téléphone ou e-mail').fill('admin@luphera.test');
+  await page.getByLabel('Mot de passe').fill('password');
+  await page.getByRole('button', { name: 'Entrer dans la console' }).click();
+  await page.getByRole('heading', { name: 'Tableau de bord' }).waitFor({ timeout: 20_000 });
+  await shot('dashboard');
+
+  await page.goto(`${adminBase}/commandes`, { waitUntil: 'networkidle' });
+  await shot('orders');
+
+  await page.goto(`${adminBase}/commandes/${orderNumber}`, { waitUntil: 'networkidle' });
+  await shot('order-detail');
+
+  await page.goto(`${adminBase}/stock`, { waitUntil: 'networkidle' });
+  await shot('stock');
+
+  if (full) {
+    const ids = await page.evaluate(async () => {
+      const [products, customers] = await Promise.all([
+        fetch('/api/v1/admin/products', { headers: { Accept: 'application/json' } }).then((r) =>
+          r.json(),
+        ),
+        fetch('/api/v1/admin/customers', { headers: { Accept: 'application/json' } }).then((r) =>
+          r.json(),
+        ),
+      ]);
+
+      return {
+        product: products.data?.[0]?.id ?? null,
+        customer: customers.data?.[0]?.id ?? null,
+      };
+    });
+
+    await page.goto(`${adminBase}/produits`, { waitUntil: 'networkidle' });
+    await shot('products');
+
+    if (ids.product !== null) {
+      await page.goto(`${adminBase}/produits/${ids.product}`, { waitUntil: 'networkidle' });
+      await shot('product-editor');
+    }
+
+    await page.goto(`${adminBase}/clients`, { waitUntil: 'networkidle' });
+    await shot('customers');
+
+    if (ids.customer !== null) {
+      await page.goto(`${adminBase}/clients/${ids.customer}`, { waitUntil: 'networkidle' });
+      await shot('customer-detail');
+    }
+
+    await page.goto(`${adminBase}/coupons`, { waitUntil: 'networkidle' });
+    await shot('coupons');
+
+    await page.goto(`${adminBase}/pages`, { waitUntil: 'networkidle' });
+    await shot('pages');
+
+    await page.goto(`${adminBase}/parametres`, { waitUntil: 'networkidle' });
+    await shot('settings');
+
+    await page.goto(`${adminBase}/journal`, { waitUntil: 'networkidle' });
+    await shot('audit');
+  }
+
+  await page.close();
+}
+
+if (flow === 'all' || flow === 'flow') {
   await captureFlow(1440, 900, '1440');
   await captureFlow(390, 844, '390');
 }
 
-if (flow !== 'flow') {
+if (flow === 'all' || flow === 'account') {
   await captureAccount(1440, 900, '1440');
   await captureAccount(390, 844, '390');
+}
+
+if (flow === 'admin') {
+  await captureAdmin(1440, 900, '1440', true);
+  await captureAdmin(390, 844, '390', false);
 }
 
 await browser.close();

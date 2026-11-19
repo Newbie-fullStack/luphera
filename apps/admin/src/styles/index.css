@@ -1,0 +1,140 @@
+@import 'tailwindcss';
+
+@font-face {
+  font-family: 'Jost';
+  src: url('/fonts/jost-latin.woff2') format('woff2');
+  font-weight: 300 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Marcellus';
+  src: url('/fonts/marcellus-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --color-nuit: #070605;
+  --color-obsidienne: #100d0a;
+  --color-charbon: #1b1712;
+  --color-or: #c9a24b;
+  --color-or-clair: #f0d589;
+  --color-or-profond: #8a6a26;
+  --color-ivoire: #efe6d2;
+  --color-texte: #d3cab6;
+  --color-brume: #9b9283;
+  --color-rose: #e3b7a0;
+  --color-err: #e2907f;
+  --color-ok: #8fbf9f;
+
+  --color-ligne: rgb(201 162 75 / 0.18);
+  --color-ligne-forte: rgb(201 162 75 / 0.5);
+
+  --font-display: 'Marcellus', 'Trajan Pro', Georgia, serif;
+  --font-body: 'Jost', 'Helvetica Neue', Arial, sans-serif;
+
+  --ease-lux: cubic-bezier(0.22, 0.61, 0.12, 1);
+
+  --shadow-focus: 0 0 0 3px rgb(240 213 137 / 0.16);
+}
+
+:root {
+  --or-gradient: linear-gradient(
+    100deg,
+    #8a6a26 0%,
+    #f0d589 38%,
+    #c9a24b 58%,
+    #f6e3a8 80%,
+    #8a6a26 100%
+  );
+  color-scheme: dark;
+  --sidebar-w: 248px;
+  --header-h: 64px;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--color-nuit);
+    color: var(--color-texte);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 400;
+    line-height: 1.15;
+    color: var(--color-ivoire);
+  }
+
+  p {
+    margin: 0;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+  }
+
+  :focus-visible {
+    outline: 1px solid var(--color-or-clair);
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    background: var(--color-or);
+    color: var(--color-nuit);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgb(201 162 75 / 0.25);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
