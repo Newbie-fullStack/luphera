@@ -1,8 +1,10 @@
 <?php
 
 use App\Domain\Commerce\Exceptions\BusinessRuleException;
+use App\Http\Middleware\EnsureStaff;
 use App\Http\Middleware\SecurityHeaders;
 use App\Support\ApiResponse;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
@@ -11,6 +13,10 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Exceptions\UnauthorizedException;
+use Spatie\Permission\Middleware\PermissionMiddleware;
+use Spatie\Permission\Middleware\RoleMiddleware;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -25,6 +31,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(SecurityHeaders::class);
         $middleware->statefulApi();
         $middleware->trustProxies(at: '*');
+        $middleware->alias([
+            'staff' => EnsureStaff::class,
+            'role' => RoleMiddleware::class,
+            'permission' => PermissionMiddleware::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
@@ -57,6 +68,19 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return ApiResponse::error('Authentification requise.', [], 401, 'unauthenticated');
+        });
+
+        $exceptions->render(function (AuthorizationException|UnauthorizedException|AccessDeniedHttpException $exception, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            return ApiResponse::error(
+                'Vous n’avez pas les droits pour cette action.',
+                [],
+                403,
+                'forbidden',
+            );
         });
 
         $exceptions->render(function (ThrottleRequestsException $exception, Request $request) {

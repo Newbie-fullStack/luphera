@@ -20,6 +20,7 @@ class StockMovement extends Model
         'quantity',
         'reason',
         'author',
+        'note',
         'created_at',
     ];
 

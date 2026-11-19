@@ -40,6 +40,17 @@ function cartToken(TestCase $test): string
 }
 
 /**
+ * Creates a staff account holding the given back-office role.
+ */
+function staffUser(string $role = 'admin'): User
+{
+    $user = User::factory()->create();
+    $user->assignRole($role);
+
+    return $user;
+}
+
+/**
  * Valid checkout payload, in the shape the storefront sends.
  *
  * @param array<string, mixed> $overrides

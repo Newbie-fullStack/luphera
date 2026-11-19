@@ -64,15 +64,23 @@ class RolesAndPermissionsSeeder extends Seeder
         $admin->syncPermissions($permissions);
 
         if (app()->environment('local', 'testing')) {
-            User::query()->firstOrCreate(
-                ['phone' => '+212600000001'],
-                [
-                    'name' => 'Admin Luphéra',
-                    'email' => 'admin@luphera.test',
-                    'password' => 'password',
-                    'phone_verified_at' => now(),
-                ],
-            )->assignRole($admin);
+            $accounts = [
+                ['phone' => '+212600000001', 'name' => 'Admin Luphéra', 'email' => 'admin@luphera.test', 'role' => $admin],
+                ['phone' => '+212600000002', 'name' => 'Manager Luphéra', 'email' => 'manager@luphera.test', 'role' => $manager],
+                ['phone' => '+212600000003', 'name' => 'Support Luphéra', 'email' => 'support@luphera.test', 'role' => $support],
+            ];
+
+            foreach ($accounts as $account) {
+                User::query()->firstOrCreate(
+                    ['phone' => $account['phone']],
+                    [
+                        'name' => $account['name'],
+                        'email' => $account['email'],
+                        'password' => 'password',
+                        'phone_verified_at' => now(),
+                    ],
+                )->assignRole($account['role']);
+            }
         }
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Domain\Account\Models\Address;
 use App\Domain\Account\Models\WishlistItem;
+use App\Domain\Admin\Models\CustomerNote;
 use App\Domain\Commerce\Models\Order;
 use App\Models\Concerns\HasPublicId;
 use Database\Factories\UserFactory;
@@ -49,17 +50,17 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'phone_verified_at' => 'datetime',
-            'last_login_at' => 'datetime',
-            'is_active' => 'boolean',
-            'marketing_opt_in' => 'boolean',
-            'password' => 'hashed',
-        ];
-    }
+    /**
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'phone_verified_at' => 'datetime',
+        'last_login_at' => 'datetime',
+        'is_active' => 'boolean',
+        'marketing_opt_in' => 'boolean',
+        'password' => 'hashed',
+    ];
 
     /** @return HasMany<Order, $this> */
     public function orders(): HasMany
@@ -77,5 +78,13 @@ class User extends Authenticatable
     public function wishlistItems(): HasMany
     {
         return $this->hasMany(WishlistItem::class);
+    }
+
+    /**
+     * @return HasMany<CustomerNote, $this>
+     */
+    public function notes(): HasMany
+    {
+        return $this->hasMany(CustomerNote::class);
     }
 }
