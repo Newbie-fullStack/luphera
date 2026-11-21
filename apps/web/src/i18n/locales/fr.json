@@ -665,5 +665,80 @@
       "fallback": "Repli",
       "fallbackValue": "Sans WebGL ou avec mouvement réduit, le flacon reste visible et sans animation."
     }
+  },
+  "content": {
+    "loading": "Chargement de la page…",
+    "error": "Cette page n'a pas pu être chargée.",
+    "retry": "Réessayer",
+    "unavailableTitle": "Page en préparation",
+    "unavailableBody": "Le texte de cette page n'est pas encore publié. Écrivez-nous si vous avez besoin de l'information dès maintenant.",
+    "unavailableContact": "Nous écrire",
+    "back": "Retour à la boutique",
+    "updated": "Mise à jour le {{date}}"
+  },
+  "contact": {
+    "eyebrow": "Contact",
+    "title": "Écrivez-nous",
+    "lead": "Une question sur une commande, un parfum ou une livraison ? Votre message arrive directement dans notre boîte.",
+    "name": "Nom",
+    "email": "E-mail",
+    "phone": "Téléphone",
+    "phoneOptional": "Facultatif",
+    "subject": "Sujet",
+    "message": "Message",
+    "messageHint": "20 caractères minimum.",
+    "subjects": {
+      "order": "Une commande",
+      "product": "Un parfum",
+      "return": "Un retour",
+      "other": "Autre demande"
+    },
+    "submit": "Envoyer le message",
+    "submitting": "Envoi…",
+    "successTitle": "Message reçu",
+    "successBody": "Nous revenons vers vous par e-mail. Aucune réponse automatique n'est envoyée pour l'instant.",
+    "sendAnother": "Écrire un autre message",
+    "privacy": "Vos coordonnées servent uniquement à répondre à ce message.",
+    "error": "L'envoi a échoué. Réessayez dans un instant.",
+    "errors": {
+      "name": "Entrez votre nom.",
+      "email": "Entrez une adresse e-mail valide.",
+      "phone": "Entrez un numéro marocain valide.",
+      "subject": "Choisissez un sujet.",
+      "message": "Votre message doit contenir au moins 20 caractères."
+    }
+  },
+  "reviews": {
+    "eyebrow": "Avis",
+    "title": "Ce qu'en disent les clients",
+    "empty": "Aucun avis publié pour ce parfum.",
+    "average": "{{rating}} sur 5",
+    "count_one": "{{count}} avis",
+    "count_other": "{{count}} avis",
+    "pending": "Votre avis a été envoyé et sera publié après relecture.",
+    "formTitle": "Donner votre avis",
+    "formLead": "Seuls les clients dont la commande a été livrée peuvent écrire un avis.",
+    "rating": "Note",
+    "ratingHint": "De 1 à 5 étoiles.",
+    "reviewTitle": "Titre",
+    "reviewTitleOptional": "Facultatif",
+    "body": "Votre avis",
+    "bodyHint": "10 caractères minimum.",
+    "submit": "Publier mon avis",
+    "submitting": "Envoi…",
+    "loginPrompt": "Connectez-vous pour donner votre avis.",
+    "login": "Se connecter",
+    "notEligible": "Vous pourrez donner votre avis après la livraison de ce parfum.",
+    "alreadyReviewed": "Vous avez déjà donné votre avis sur ce parfum.",
+    "error": "Votre avis n'a pas pu être envoyé. Réessayez dans un instant.",
+    "verified": "Achat vérifié",
+    "starsLabel": "{{rating}} étoiles sur 5",
+    "errors": {
+      "rating": "Choisissez une note.",
+      "body": "Votre avis doit contenir au moins 10 caractères."
+    }
+  },
+  "announcement": {
+    "label": "Annonce"
   }
 }

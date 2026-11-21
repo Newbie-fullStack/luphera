@@ -17,6 +17,7 @@ import { ProductJsonLd } from '@/features/catalog/components/ProductJsonLd';
 import { useProduct, useRelatedProducts } from '@/features/catalog/useCatalog';
 import type { ProductDetail, ProductSummary } from '@/features/catalog/types';
 import { useCart } from '@/features/cart/useCart';
+import { ReviewsSection } from '@/features/reviews/ReviewsSection';
 import { ApiError } from '@/lib/api/client';
 import { formatMAD } from '@/lib/format';
 
@@ -419,6 +420,8 @@ function ProductView({ product, related }: ProductViewProps) {
       {product.is_demo ? (
         <p className="mt-8 text-[11px] leading-relaxed text-brume/80">{t('product.demoNotice')}</p>
       ) : null}
+
+      <ReviewsSection productId={product.id} slug={product.slug} />
 
       {related.length > 0 ? (
         <section className="mt-20 border-t border-ligne pt-12">

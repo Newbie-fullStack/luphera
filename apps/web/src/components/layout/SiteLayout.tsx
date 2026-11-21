@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { CartDrawer } from '@/features/cart/components/CartDrawer';
 
+import { AnnouncementBar } from './AnnouncementBar';
 import { ScrollProgress } from './ScrollProgress';
 import { SiteFooter } from './SiteFooter';
 import { SiteHeader } from './SiteHeader';
@@ -34,6 +35,7 @@ export function SiteLayout() {
       <SiteHeader />
       <CartDrawer />
       <main id="contenu" tabIndex={-1} className="flex-1 pt-[104px] outline-none">
+        <AnnouncementBar />
         <Outlet />
       </main>
       <SiteFooter />

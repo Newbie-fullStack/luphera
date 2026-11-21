@@ -2,7 +2,8 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
-const base = process.env.SCREEN_BASE ?? 'http://127.0.0.1:4173';
+const base = process.env.SCREEN_BASE ?? 'http://localhost:4173';
+const apiBase = process.env.ADMIN_API ?? 'http://127.0.0.1:8000/api/v1';
 const out = path.resolve('../../docs/screens');
 
 await mkdir(out, { recursive: true });
@@ -16,17 +17,116 @@ const shots = [
   { name: 'shop-390', url: '/boutique', width: 390, height: 844 },
   { name: 'product-1440', url: '/produit/luphera-noir', width: 1440, height: 900 },
   { name: 'product-390', url: '/produit/luphera-noir', width: 390, height: 844 },
+  {
+    name: 'reviews-1440',
+    url: '/produit/luphera-noir',
+    width: 1440,
+    height: 900,
+    anchor: '#reviews-title',
+    fullPage: false,
+    phase: 5,
+  },
+  {
+    name: 'reviews-390',
+    url: '/produit/luphera-noir',
+    width: 390,
+    height: 844,
+    anchor: '#reviews-title',
+    fullPage: false,
+    phase: 5,
+  },
+  { name: 'contact-1440', url: '/contact', width: 1440, height: 900, phase: 5 },
+  { name: 'contact-390', url: '/contact', width: 390, height: 844, phase: 5 },
+  { name: 'histoire-1440', url: '/histoire', width: 1440, height: 900, phase: 5 },
+  { name: 'histoire-390', url: '/histoire', width: 390, height: 844, phase: 5 },
   { name: 'design-system-1440', url: '/design-system', width: 1440, height: 900 },
   { name: 'design-system-390', url: '/design-system', width: 390, height: 844 },
 ];
 
 // SCREEN_FLOW=account captures only the account pages, SCREEN_FLOW=flow only
-// the purchase journey, SCREEN_FLOW=admin only the back-office. Unset means
-// the storefront (the make target).
+// the purchase journey, SCREEN_FLOW=admin only the back-office, SCREEN_FLOW=content
+// only the phase 5 storefront screens. Unset means the storefront (the make target).
 const flow = process.env.SCREEN_FLOW ?? 'all';
 
+/**
+ * The house page is seeded as a draft on purpose. A screenshot of the CMS has
+ * to show a real published page, so this logs in through the API and publishes
+ * it the same way the console does. The body stays the "[à compléter]" seed
+ * text: the capture never invents editorial copy.
+ */
+async function publishHousePage() {
+  const apiOrigin = new URL(apiBase).origin;
+  const origin = 'http://localhost:4173';
+  const jar = new Map();
+
+  const call = async (pathname, options = {}) => {
+    const response = await fetch(`${apiOrigin}${pathname}`, {
+      ...options,
+      headers: {
+        Accept: 'application/json',
+        Origin: origin,
+        Referer: `${origin}/`,
+        ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(jar.size === 0
+          ? {}
+          : { Cookie: [...jar].map(([key, value]) => `${key}=${value}`).join('; ') }),
+        ...(options.headers ?? {}),
+      },
+    });
+
+    for (const raw of response.headers.getSetCookie()) {
+      const pair = raw.split(';')[0];
+      const index = pair.indexOf('=');
+      jar.set(pair.slice(0, index), pair.slice(index + 1));
+    }
+
+    return response;
+  };
+
+  await call('/sanctum/csrf-cookie');
+
+  const csrf = () => decodeURIComponent(jar.get('XSRF-TOKEN') ?? '');
+
+  const login = await call('/api/v1/admin/login', {
+    method: 'POST',
+    headers: { 'X-XSRF-TOKEN': csrf() },
+    body: JSON.stringify({ identifier: 'admin@luphera.test', password: 'password' }),
+  });
+
+  if (!login.ok) {
+    throw new Error(`admin login failed with ${login.status}`);
+  }
+
+  const pages = await (await call('/api/v1/admin/pages')).json();
+  const page = pages.data.find((entry) => entry.slug === 'histoire');
+
+  if (page === undefined) {
+    throw new Error('the seeded house page is missing');
+  }
+
+  if (page.is_published) {
+    return;
+  }
+
+  const patched = await call(`/api/v1/admin/pages/${page.id}`, {
+    method: 'PATCH',
+    headers: { 'X-XSRF-TOKEN': csrf() },
+    body: JSON.stringify({ is_published: true }),
+  });
+
+  if (!patched.ok) {
+    throw new Error(`publishing the house page failed with ${patched.status}`);
+  }
+}
+
+if (flow === 'all' || flow === 'content') {
+  await publishHousePage();
+}
+
 for (const shot of shots) {
-  if (flow !== 'all') break;
+  if (flow === 'content' && shot.phase !== 5) continue;
+  if (flow !== 'all' && flow !== 'content') break;
+
   const page = await browser.newPage({
     viewport: { width: shot.width, height: shot.height },
     deviceScaleFactor: 1,
@@ -44,7 +144,15 @@ for (const shot of shots) {
   });
   await page.waitForTimeout(800);
 
-  await page.screenshot({ path: path.join(out, `${shot.name}.png`), fullPage: true });
+  if (shot.anchor !== undefined) {
+    await page.locator(shot.anchor).scrollIntoViewIfNeeded();
+    await page.waitForTimeout(400);
+  }
+
+  await page.screenshot({
+    path: path.join(out, `${shot.name}.png`),
+    fullPage: shot.fullPage ?? true,
+  });
   await page.close();
 }
 
@@ -166,7 +274,9 @@ async function captureAccount(width, height, suffix) {
   await page.getByLabel('Quartier').fill('Maarif');
   await page.getByLabel('Adresse', { exact: true }).fill('12 rue des Orangers');
   await page.getByRole('button', { name: 'Enregistrer' }).click();
-  await page.getByText('Par défaut', { exact: true }).waitFor({ state: 'visible', timeout: 15_000 });
+  await page
+    .getByText('Par défaut', { exact: true })
+    .waitFor({ state: 'visible', timeout: 15_000 });
   await page.waitForTimeout(600);
   await fullShot(page, path.join(out, `account-addresses-${suffix}.png`));
 
@@ -188,7 +298,7 @@ async function captureAccount(width, height, suffix) {
  * through the public API so the queue shows a real record, never a mock.
  */
 const adminBase = process.env.ADMIN_BASE ?? 'http://localhost:5174';
-const adminApi = process.env.ADMIN_API ?? 'http://127.0.0.1:8000/api/v1';
+const adminApi = apiBase;
 
 async function adminJson(pathname, options = {}) {
   const response = await fetch(`${adminApi}${pathname}`, {
@@ -309,6 +419,12 @@ async function captureAdmin(width, height, suffix, full) {
     await page.goto(`${adminBase}/pages`, { waitUntil: 'networkidle' });
     await shot('pages');
 
+    await page.goto(`${adminBase}/messages`, { waitUntil: 'networkidle' });
+    await shot('messages');
+
+    await page.goto(`${adminBase}/avis`, { waitUntil: 'networkidle' });
+    await shot('reviews');
+
     await page.goto(`${adminBase}/parametres`, { waitUntil: 'networkidle' });
     await shot('settings');
 
@@ -336,4 +452,3 @@ if (flow === 'admin') {
 
 await browser.close();
 console.log(`Screens written to ${out}`);
-

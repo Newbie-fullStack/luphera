@@ -19,6 +19,16 @@ vi.mock('@/features/catalog/api', () => ({
   fetchBundles: vi.fn(),
 }));
 
+vi.mock('@/features/reviews/api', () => ({
+  fetchReviews: vi.fn().mockResolvedValue({
+    reviews: [],
+    average: null,
+    count: 0,
+    distribution: { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 },
+  }),
+  submitReview: vi.fn(),
+}));
+
 const mockedFetchProduct = vi.mocked(fetchProduct);
 const mockedFetchRelated = vi.mocked(fetchRelatedProducts);
 const addItem = vi.fn<CartContextValue['addItem']>().mockResolvedValue(undefined);

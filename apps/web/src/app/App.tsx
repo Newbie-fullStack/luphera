@@ -64,8 +64,11 @@ const AccountWishlistPage = lazy(() =>
 const DesignSystemPage = lazy(() =>
   import('@/pages/DesignSystemPage').then((module) => ({ default: module.DesignSystemPage })),
 );
-const PlaceholderPage = lazy(() =>
-  import('@/pages/PlaceholderPage').then((module) => ({ default: module.PlaceholderPage })),
+const CmsPage = lazy(() =>
+  import('@/features/content/CmsPage').then((module) => ({ default: module.CmsPage })),
+);
+const ContactPage = lazy(() =>
+  import('@/pages/ContactPage').then((module) => ({ default: module.ContactPage })),
 );
 const NotFoundPage = lazy(() =>
   import('@/pages/NotFoundPage').then((module) => ({ default: module.NotFoundPage })),
@@ -112,10 +115,16 @@ export function App() {
             <Route path="adresses" element={<AccountAddressesPage />} />
             <Route path="favoris" element={<AccountWishlistPage />} />
           </Route>
-          <Route path="histoire" element={<PlaceholderPage titleKey="nav.story" />} />
-          <Route path="livraison" element={<PlaceholderPage titleKey="nav.shipping" />} />
-          <Route path="contact" element={<PlaceholderPage titleKey="nav.contact" />} />
-          <Route path="mentions-legales" element={<PlaceholderPage titleKey="footer.terms" />} />
+          <Route path="histoire" element={<CmsPage slug="histoire" eyebrowKey="nav.story" />} />
+          <Route
+            path="livraison"
+            element={<CmsPage slug="livraison-et-retours" eyebrowKey="nav.shipping" />}
+          />
+          <Route path="contact" element={<ContactPage />} />
+          <Route
+            path="mentions-legales"
+            element={<CmsPage slug="mentions-legales" eyebrowKey="footer.terms" />}
+          />
           <Route path="design-system" element={<DesignSystemPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>

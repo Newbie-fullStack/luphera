@@ -160,6 +160,69 @@ await setStatus(page, 'shipped', 'Expédiée');
 await page.getByText('AMN-123456').waitFor();
 check(true, 'manager prepares then ships the order with tracking');
 
+// ------------------------------------------------------- phase 5: contents
+await page.goto(`${base}/pages`, { waitUntil: 'networkidle' });
+await page.getByRole('heading', { name: 'Pages' }).waitFor();
+await page
+  .locator('tr', { hasText: 'La maison' })
+  .getByRole('button', { name: 'Modifier' })
+  .click();
+await page.getByLabel('Publiée').check();
+await page.getByRole('button', { name: 'Enregistrer' }).click();
+await page.getByText('Page mise à jour.').first().waitFor();
+
+const published = await page.evaluate(async () => {
+  const response = await fetch('/api/v1/pages/histoire', {
+    headers: { Accept: 'application/json' },
+  });
+
+  return { status: response.status, body: await response.json() };
+});
+check(
+  published.status === 200 && published.body.data?.slug === 'histoire',
+  'manager publishes the house page and the storefront can read it',
+);
+
+// ------------------------------------------------------- phase 5: messages
+const contact = await apiJson('/contact', {
+  method: 'POST',
+  body: JSON.stringify({
+    name: 'Salma Bennani',
+    email: 'salma@example.test',
+    phone: '0612345678',
+    subject: 'Question livraison',
+    message: 'Bonjour, quel est le délai de livraison à Fès pour un coffret ?',
+  }),
+});
+check(contact.status === 201, 'the storefront contact form accepts a message');
+
+await page.goto(`${base}/messages`, { waitUntil: 'networkidle' });
+await page.getByRole('heading', { name: 'Messages' }).waitFor();
+await page.getByRole('button', { name: /Ouvrir/ }).first().click();
+await page.getByRole('button', { name: 'Marquer répondu' }).click();
+await page.getByText('Statut du message mis à jour.').waitFor();
+check(true, 'the team processes a contact message from the inbox');
+
+// -------------------------------------------------------- phase 5: reviews
+await page.goto(`${base}/avis`, { waitUntil: 'networkidle' });
+await page.getByRole('heading', { name: 'Avis' }).waitFor();
+await page.getByLabel('Statut').selectOption('pending');
+await page.getByRole('button', { name: 'Modérer' }).first().click();
+await page.getByRole('button', { name: 'Publier' }).click();
+await page.getByText('Avis mis à jour.').waitFor();
+
+const approved = await page.evaluate(async () => {
+  const response = await fetch('/api/v1/products/luphera-ambre/reviews', {
+    headers: { Accept: 'application/json' },
+  });
+
+  return { status: response.status, body: await response.json() };
+});
+check(
+  approved.status === 200 && approved.body.data?.length > 0,
+  'an approved review becomes visible on the storefront',
+);
+
 // Dynamic ids for the detail screens, read through the authenticated session.
 const products = await page.evaluate(async () => {
   const response = await fetch('/api/v1/admin/products', {
@@ -188,6 +251,8 @@ const routes = [
   { path: '/stock', title: 'Stock' },
   { path: '/clients', title: 'Clients' },
   ...(customerId === undefined ? [] : [{ path: `/clients/${customerId}`, title: 'Fiche client' }]),
+  { path: '/messages', title: 'Messages' },
+  { path: '/avis', title: 'Avis' },
   { path: '/coupons', title: 'Coupons' },
   { path: '/pages', title: 'Pages' },
   { path: '/parametres', title: 'Paramètres' },
