@@ -666,6 +666,39 @@ Favoris du client, du plus récent au plus ancien, sous la forme des fiches rés
 
 `{product}` est l'ULID public du produit. `200` avec `data: null` ; `404` `not_found` si le favori n'existe pas.
 
+### `POST /api/v1/contact`
+
+Formulaire de contact public, limité à cinq envois par minute et par adresse IP.
+
+```json
+{
+  "name": "Salma Bennani",
+  "email": "salma@example.test",
+  "phone": "06 12 34 56 78",
+  "subject": "Question livraison",
+  "message": "Bonjour, quel est le délai de livraison à Fès ?"
+}
+```
+
+`name`, `email`, `subject` et `message` sont requis ; `phone` est facultatif et normalisé en `+212…`. `website` est un honeypot : toute valeur non vide fait échouer la validation. `201` avec `data.received = true` ; `422` `validation_error` ; `429` `rate_limited`. Le message est stocké, aucun e-mail n'est envoyé : la boîte de réception du back-office fait foi.
+
+### `GET /api/v1/products/{slug}/reviews`
+
+Avis publiés d'un produit, du plus récent au plus ancien. Seuls les avis `approved` sortent. `meta` porte `average`, `count`, `distribution` (notes 5 à 1) et la pagination habituelle. L'auteur est déjà réduit à « Prénom N. ». `404` si le produit n'existe pas ou n'est plus actif.
+
+### `POST /api/v1/me/reviews`
+
+```json
+{
+  "product_id": "01M7CEEFAVYY6ZH8JX8W2DMMTE",
+  "rating": 5,
+  "title": "Sillage tenace",
+  "body": "Un parfum qui tient toute la journée."
+}
+```
+
+Réservé à un client connecté. Un avis exige une commande `delivered` contenant ce produit ; il est créé en `pending` et n'apparaît qu'après modération. `201` avec `data.status = pending` ; `403` `review_not_eligible` sans commande livrée ; `422` `already_reviewed` pour un second avis sur le même produit. `throttle:public-forms` s'applique aussi.
+
 ## Endpoints phase 4 - back-office
 
 La console consomme la même session Sanctum que la boutique, mais le compte doit
@@ -690,7 +723,10 @@ jamais à partir du nom du rôle.
 | `content.manage` | ✔ | ✔ | — |
 | `settings.manage` | ✔ | — | — |
 | `audit.view` | ✔ | — | — |
-| `reviews.moderate`, `messages.view`, `ai.use` | ✔ | ✔ | ✔/— |
+| `reviews.moderate` | ✔ | ✔ | ✔ |
+| `messages.view` | ✔ | ✔ | ✔ |
+| `messages.manage` | ✔ | ✔ | ✔ |
+| `ai.use` | ✔ | ✔ | — |
 
 `admin` contourne toutes les vérifications par un `Gate::before` ; la matrice
 ci-dessus documente le comportement attendu, pas une liste dupliquée en base.
@@ -898,6 +934,24 @@ est journalisée avec l'écart avant/après.
 `meta_title`, `meta_description`, `is_published`. Le slug est dérivé du titre
 quand il est absent ; une page publiée est lisible via l'API publique.
 
+### `GET /api/v1/admin/messages`, `GET|PATCH /admin/messages/{message}`
+
+Boîte de réception du formulaire de contact, réservée à `messages.view` en
+lecture et `messages.manage` pour changer le statut. `GET` accepte `status`
+(`new`, `read`, `replied`, `archived`), `q` et `page`, et renvoie `meta.new_count`.
+La fiche ajoute `body`, `user_agent` et le client rattaché s'il est connecté.
+`PATCH` attend `{ "status": "replied" }` : passer à `read`, `replied` ou
+`archived` renseigne `read_at`, et `replied` renseigne `replied_at`. Chaque
+changement écrit une ligne d'audit `message.updated`.
+
+### `GET /api/v1/admin/reviews`, `PATCH /admin/reviews/{review}`
+
+File de modération réservée à `reviews.moderate`. `GET` filtre par `status`
+(`pending`, `approved`, `rejected`) et `q`, et renvoie `meta.pending_count`.
+`PATCH` accepte `{ "status": "approved" | "rejected", "moderation_note": "…" }` ;
+seul un avis approuvé devient lisible par la boutique. Chaque décision écrit une
+ligne d'audit `review.moderated`.
+
 ### `GET /api/v1/admin/audit-logs` et `GET /admin/audit-logs/actions`
 
 Journal append-only, filtrable par `action`, `q`, `from`, `to`, `page`. Chaque
@@ -938,7 +992,7 @@ tags:
   - name: Account
     description: Session, profil, adresses, favoris et facture du client
   - name: Content
-    description: Pages éditoriales publiées
+    description: Pages éditoriales, contact et avis publiés
   - name: Back-office
     description: Console de gestion réservée aux rôles staff
 paths:
@@ -2756,6 +2810,232 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuditLogListEnvelope'
+  /contact:
+    post:
+      tags: [Content]
+      summary: Envoyer un message de contact
+      operationId: storeContactMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactMessageInput'
+      responses:
+        '201':
+          description: Message reçu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactReceiptEnvelope'
+        '422':
+          description: Payload invalide ou honeypot rempli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Trop de demandes depuis cette adresse
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /products/{slug}/reviews:
+    get:
+      tags: [Content]
+      summary: Avis publiés d'un produit
+      operationId: listProductReviews
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Avis approuvés et agrégats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewListEnvelope'
+        '404':
+          description: Produit inconnu ou inactif
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /me/reviews:
+    post:
+      tags: [Account]
+      summary: Déposer un avis après livraison
+      operationId: storeReview
+      security:
+        - sanctumCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewInput'
+      responses:
+        '201':
+          description: Avis créé en attente de modération
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewEnvelope'
+        '403':
+          description: Aucune commande livrée pour ce produit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Avis déjà déposé ou payload invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/messages:
+    get:
+      tags: [Back-office]
+      summary: Boîte de réception du formulaire de contact
+      operationId: adminMessages
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [new, read, replied, archived]
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Messages paginés avec le compteur de non-lus
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMessageListEnvelope'
+  /admin/messages/{message}:
+    parameters:
+      - name: message
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Back-office]
+      summary: Lire un message
+      operationId: adminMessage
+      security:
+        - sanctumCookie: []
+      responses:
+        '200':
+          description: Message complet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMessageEnvelope'
+    patch:
+      tags: [Back-office]
+      summary: Changer le statut d'un message
+      operationId: adminMessageStatus
+      security:
+        - sanctumCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [new, read, replied, archived]
+      responses:
+        '200':
+          description: Message mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMessageEnvelope'
+  /admin/reviews:
+    get:
+      tags: [Back-office]
+      summary: File de modération des avis
+      operationId: adminReviews
+      security:
+        - sanctumCookie: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Avis paginés avec le compteur en attente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReviewListEnvelope'
+  /admin/reviews/{review}:
+    parameters:
+      - name: review
+        in: path
+        required: true
+        schema:
+          type: integer
+    patch:
+      tags: [Back-office]
+      summary: Approuver ou rejeter un avis
+      operationId: adminReviewModerate
+      security:
+        - sanctumCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [approved, rejected]
+                moderation_note:
+                  type: [string, 'null']
+      responses:
+        '200':
+          description: Avis modéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReviewEnvelope'
 components:
   securitySchemes:
     sanctumCookie:
@@ -4537,6 +4817,278 @@ components:
         errors:
           type: array
           maxItems: 0
+    ContactMessageInput:
+      type: object
+      required: [name, email, subject, message]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        email:
+          type: string
+          format: email
+        phone:
+          type: [string, 'null']
+          description: Normalisé en `+212…`
+        subject:
+          type: string
+          maxLength: 120
+        message:
+          type: string
+          minLength: 20
+          maxLength: 2000
+        website:
+          type: string
+          maxLength: 0
+          description: Honeypot, toute valeur non vide fait échouer la validation
+    ContactReceiptEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: object
+          required: [received]
+          properties:
+            received:
+              type: boolean
+              const: true
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    Review:
+      type: object
+      required: [id, rating, body, author, created_at]
+      properties:
+        id:
+          type: integer
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        title:
+          type: [string, 'null']
+        body:
+          type: string
+        author:
+          type: string
+          description: Réduit à « Prénom N. »
+        created_at:
+          type: [string, 'null']
+          format: date-time
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+          description: Présent uniquement dans la réponse de création
+    ReviewInput:
+      type: object
+      required: [product_id, rating, body]
+      properties:
+        product_id:
+          type: string
+          description: ULID public du produit
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        title:
+          type: [string, 'null']
+          maxLength: 120
+        body:
+          type: string
+          minLength: 10
+          maxLength: 1000
+    ReviewEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          $ref: '#/components/schemas/Review'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    ReviewListEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Review'
+        meta:
+          type: object
+          properties:
+            average:
+              type: [number, 'null']
+            count:
+              type: integer
+            distribution:
+              type: object
+              properties:
+                '5': { type: integer }
+                '4': { type: integer }
+                '3': { type: integer }
+                '2': { type: integer }
+                '1': { type: integer }
+            current_page:
+              type: integer
+            last_page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+        errors:
+          type: array
+          maxItems: 0
+    AdminMessage:
+      type: object
+      required: [id, name, email, subject, status, created_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: [string, 'null']
+        subject:
+          type: string
+        status:
+          type: string
+          enum: [new, read, replied, archived]
+        excerpt:
+          type: string
+        body:
+          type: string
+          description: Présent sur la fiche uniquement
+        ip:
+          type: [string, 'null']
+        user_agent:
+          type: [string, 'null']
+        customer:
+          type: [object, 'null']
+          description: Client rattaché si le message a été envoyé connecté
+        created_at:
+          type: [string, 'null']
+          format: date-time
+        read_at:
+          type: [string, 'null']
+          format: date-time
+        replied_at:
+          type: [string, 'null']
+          format: date-time
+    AdminMessageEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminMessage'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    AdminMessageListEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminMessage'
+        meta:
+          type: object
+          properties:
+            current_page:
+              type: integer
+            last_page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+            new_count:
+              type: integer
+        errors:
+          type: array
+          maxItems: 0
+    AdminReview:
+      type: object
+      required: [id, rating, body, author, status, created_at]
+      properties:
+        id:
+          type: integer
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        title:
+          type: [string, 'null']
+        body:
+          type: string
+        author:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        product:
+          type: [object, 'null']
+          properties:
+            slug:
+              type: string
+            name:
+              type: string
+        moderator:
+          type: [string, 'null']
+        moderation_note:
+          type: [string, 'null']
+        moderated_at:
+          type: [string, 'null']
+          format: date-time
+        created_at:
+          type: [string, 'null']
+          format: date-time
+    AdminReviewEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminReview'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          maxItems: 0
+    AdminReviewListEnvelope:
+      type: object
+      required: [data, meta, errors]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminReview'
+        meta:
+          type: object
+          properties:
+            current_page:
+              type: integer
+            last_page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+            pending_count:
+              type: integer
+        errors:
+          type: array
+          maxItems: 0
 ```
 
 ## À venir
@@ -4547,7 +5099,8 @@ components:
 | ~~2~~ | ~~`GET /cart`, `POST /cart/items`, `PATCH/DELETE /cart/items/{item}`, `POST/DELETE /cart/coupon`, `GET /shipping/cities`, `GET /shipping/quote`, `POST /orders`, `GET /orders/{number}`~~ — livrés |
 | ~~3~~ | ~~`POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/forgot-password`, `POST /auth/reset-password`, `GET/PATCH /me`, `GET /me/orders`, `GET /me/orders/{number}`, `GET /me/orders/{number}/invoice`, `GET/POST /me/addresses`, `PATCH/DELETE /me/addresses/{address}`, `GET/POST /me/wishlist`, `DELETE /me/wishlist/{product}`~~ — livrés |
 | ~~4~~ | ~~`GET/POST /pages`, `GET /pages/{slug}`, `/admin/login`, `/admin/logout`, `/admin/me`, `/admin/dashboard`, `/admin/orders` (+ statut, bon de livraison, export), `/admin/products` (+ variantes, notes, médias, publication), `/admin/stock` (+ ajustement, import/export, mouvements), `/admin/customers` (+ notes), `/admin/coupons`, `/admin/settings`, `/admin/pages`, `/admin/audit-logs`~~ — livrés |
-| 5 | Messages de contact et avis clients (tables, écrans et modération) |
-| 6 | `POST /ai/chat` (budget de tokens plafonné) |
+| ~~5~~ | ~~`POST /contact`, `GET /products/{slug}/reviews`, `POST /me/reviews`, `/admin/messages` (+ statut), `/admin/reviews` (+ modération)~~ — livrés |
+| 6 | Scène 3D et animations avancées (aucun endpoint nouveau) |
+| 7 | `POST /ai/chat` (budget de tokens plafonné), notifications et SEO |
 
 Chaque ajout met à jour ce fichier et la spécification OpenAPI dans le même commit.

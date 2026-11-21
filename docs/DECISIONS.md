@@ -117,6 +117,15 @@ Chaque ligne documente un choix et sa justification. Une décision qui change es
 | 89 | Agrégats du tableau de bord calculés en PHP et mis en cache cinq minutes | SQLite en local et MySQL en production n'ont pas la même syntaxe de regroupement ; le cache évite de recalculer à chaque affichage. |
 | 90 | L'interface masque les actions à partir du tableau `permissions` renvoyé par `GET /admin/me`, jamais à partir du nom du rôle | Les droits restent décidés par le serveur ; le front ne fait que refléter. |
 | 91 | Audit et captures du back-office rejoués par `scripts/audit-admin.mjs` et `scripts/screens.mjs` (`SCREEN_FLOW=admin`), avec une commande réellement créée via l'API publique | Un back-office se vérifie sur des données réelles : la commande doit exister, être confirmée par le support puis expédiée par le manager. |
+| 92 | Le corps des pages CMS est rendu en paragraphes de texte brut, jamais injecté en HTML | Un éditeur riche demanderait une politique d'assainissement ; le texte suffit tant que le contenu est court. |
+| 93 | Une page brouillon répond 404 et la boutique affiche « page en préparation » avec un lien de contact | Le public ne doit jamais pouvoir distinguer un brouillon d'une page absente. |
+| 94 | Les messages de contact sont stockés en base, sans transport e-mail | Aucun SMTP n'est configuré ; la boîte de réception du back-office est la source de vérité. |
+| 95 | Champ `website` en honeypot et `throttle:public-forms` (5/min par IP) sur `POST /contact` | Deux barrières simples contre les robots, sans CAPTCHA ni dépendance externe. |
+| 96 | Un avis exige une commande `delivered` contenant le produit, une seule fois par client et par produit | Un avis doit prouver un achat ; la contrainte d'unicité est en base, pas seulement dans le contrôleur. |
+| 97 | La liste publique ne renvoie que les avis approuvés, l'auteur est réduit à « Prénom N. » | La modération protège la marque et l'identité complète du client ne sort jamais. |
+| 98 | Nouvelle permission `messages.manage` ; `messages.view` reste en lecture seule | Séparer lire et traiter permet de donner l'inbox à un profil junior sans lui donner la main. |
+| 99 | Les données de démonstration (avis, message, second client) sont préfixées `[démo]` | Une capture ou une démo ne doit jamais laisser croire à un vrai retour client. |
+| 100 | Plan renuméroté : contenus en phase 5, scène 3D en 6, puis intelligence, RTL, SEO, notifications et durcissement en 7 | La relation client manquait au back-office livré ; la 3D et l'IA restent des couches de finition, sans bloquer l'exploitation. |
 
 ## Écarts assumés
 
@@ -126,6 +135,6 @@ Chaque ligne documente un choix et sa justification. Une décision qui change es
 | Horizon non démarrable sous Windows | Extensions `pcntl` et `posix` absentes du PHP local. | Fonctionne dans l'image Docker. |
 | Couverture web 59 % au global, 80–90 % sur le panier et la commande | Les pages éditoriales et les clients API restent couverts par Playwright ; l'objectif de 80 % s'applique aux domaines panier et commande, désormais atteint. | Compléter les tests de pages en phase 5 (contenus). |
 | Textes légaux, photos Femme, coordonnées | Non fournis par le client. | Marqués `[à compléter]`, jamais présentés comme définitifs. |
-| Pages éditoriales éditables mais pas encore lues par la boutique | L'API publique `GET /pages/{slug}` est livrée et testée ; les routes `/livraison` et `/mentions-legales` de la boutique utilisent encore l'écran d'attente. | Brancher les pages CMS sur la boutique en phase 5, quand le contenu sera rédigé. |
-| Messages de contact et avis clients non stockés | Aucune table dédiée ; les permissions `messages.view` et `reviews.moderate` existent déjà pour ne pas rejouer la migration des rôles. | Tables et écrans en phase 5. |
+| Contenus éditoriaux encore en brouillon | `histoire`, `livraison-et-retours` et `mentions-legales` sont créées avec un corps `[à compléter]` ; publier depuis la console suffit à les rendre lisibles. | Rédiger et valider les textes avant mise en production. |
+| Aucun envoi d'e-mail depuis la boutique | Pas de transport configuré ; le formulaire de contact et les avis fonctionnent en base uniquement. | Brancher un fournisseur SMTP en phase 7 (durcissement). |
 | Bundle admin de 623 kB (182 kB gzip) sans découpage | Une seule route protégée, un seul public ; le découpage apportera peu tant que l'écran produit reste le plus lourd. | Découper l'éditeur produit si la mesure le justifie. |

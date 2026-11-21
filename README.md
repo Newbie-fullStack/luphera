@@ -4,7 +4,7 @@
 
 Maison marocaine d'eaux de parfum. Monorepo de la boutique : API Laravel 12, storefront React 19, console de gestion React 19, MySQL 8.
 
-> **État : phase 4 — back-office.** Le catalogue, le panier serveur, les coupons, la livraison par ville, la commande sans compte, le compte client (session, profil, adresses, favoris, historique et facture), puis la console de gestion (commandes, catalogue, stock, clients, coupons, paramètres, pages, journal d'audit) sont livrés. Les prix, stocks, frais de livraison, le code `LUPHERA10` et les comptes de démonstration sont des données de `seed` et ne doivent pas être présentés comme réels.
+> **État : phase 5 — contenus et relation client.** Le catalogue, le panier serveur, les coupons, la livraison par ville, la commande sans compte, le compte client (session, profil, adresses, favoris, historique et facture), la console de gestion (commandes, catalogue, stock, clients, coupons, paramètres, pages, journal d'audit), puis les pages éditoriales lues par la boutique, le formulaire de contact avec sa boîte de réception, les avis clients modérés et le bandeau d'annonce sont livrés. Les prix, stocks, frais de livraison, le code `LUPHERA10`, les avis et les comptes de démonstration sont des données de `seed` et ne doivent pas être présentés comme réels.
 
 ## Sommaire
 
@@ -34,6 +34,8 @@ make seed                     # rôles, permissions, compte admin local et catal
 | Boutique | http://localhost:5173/boutique |
 | Fiche produit | http://localhost:5173/produit/luphera-noir |
 | Commande | http://localhost:5173/commande |
+| Contact | http://localhost:5173/contact |
+| La maison | http://localhost:5173/histoire |
 | Suivi de commande | http://localhost:5173/suivi |
 | Connexion | http://localhost:5173/connexion |
 | Compte client | http://localhost:5173/compte |
@@ -88,6 +90,10 @@ apps/
     src/features/auth/   session : contexte, schémas Zod, formulaires
     src/features/account/ profil, commandes, adresses, favoris, garde de route
     src/features/cart/   panier : contexte, API, tiroir
+    src/features/content/ pages éditoriales du CMS
+    src/features/contact/ formulaire de contact
+    src/features/reviews/ avis publiés et dépôt d'un avis
+    src/features/settings/ réglages publics (annonce)
     src/features/orders/ commande : schéma, suivi, stockage du jeton
     src/lib/      api client (CSRF), formatage, téléphone, debounce
     src/pages/    pages publiques et formulaires d'authentification
@@ -98,7 +104,7 @@ apps/
     src/components/  shell (navigation, en-tête) et composants de table
     src/features/auth/ session staff, gardes, écran de connexion
     src/lib/api/  client typé des endpoints `/admin`
-    src/pages/    tableau de bord, commandes, catalogue, stock, clients, coupons, pages, paramètres, journal
+    src/pages/    tableau de bord, commandes, catalogue, stock, clients, messages, avis, coupons, pages, paramètres, journal
     src/i18n/     ressources françaises de la console
 docs/             DECISIONS.md, API.md, RUNBOOK.md, screens/
 reference/        luphera.html, design de référence
@@ -142,11 +148,11 @@ Vérifications de bout en bout, serveurs API et front démarrés sur une base fr
 ```bash
 cd apps/api && php artisan migrate:fresh --seed
 cd apps/web && node scripts/journey.mjs        # parcours d'achat, 360 et 1440
-cd apps/web && node scripts/audit-admin.mjs    # console : droits, confirmation, expédition, 12 routes
+cd apps/web && node scripts/audit-admin.mjs    # console : droits, confirmation, expédition, contenus, messages, avis, 14 routes
 cd apps/web && node scripts/check-openapi.mjs  # cohérence des $ref de docs/API.md
 ```
 
-`scripts/journey.mjs` rejoue visiteur → fiche → panier → coupon → commande → confirmation → suivi. `scripts/audit-admin.mjs` crée une commande réelle par l'API publique, vérifie qu'un `support` ne peut pas toucher au catalogue, qu'il peut confirmer, qu'un `manager` prépare puis expédie avec suivi, puis parcourt les douze écrans à 1440 et 390 px. Les deux scripts vérifient l'absence de débordement horizontal et d'erreur console.
+`scripts/journey.mjs` rejoue visiteur → fiche → panier → coupon → commande → confirmation → suivi. `scripts/audit-admin.mjs` crée une commande réelle par l'API publique, vérifie qu'un `support` ne peut pas toucher au catalogue, qu'il peut confirmer, qu'un `manager` prépare puis expédie avec suivi, publie la page maison et la relit depuis la boutique, envoie un message de contact puis le traite dans la boîte de réception, approuve un avis puis vérifie qu'il apparaît sur la fiche produit, avant de parcourir les quatorze écrans à 1440 et 390 px. Les deux scripts vérifient l'absence de débordement horizontal et d'erreur console.
 
 ## Comptes de test
 
@@ -170,34 +176,34 @@ Le téléphone ou l'e-mail sert d'identifiant. Ces comptes n'existent jamais en 
 - Polices auto-hébergées dans `apps/web/public/fonts/`.
 - Courbe unique : `cubic-bezier(.22,.61,.12,1)` (`--ease-lux`), durées ≥ 400 ms.
 - `prefers-reduced-motion` désactive animations et transitions.
-- Captures : `docs/screens/home-1440.png`, `home-390.png`, `shop-1440.png`, `shop-390.png`, `product-1440.png`, `product-390.png`, `cart-1440.png`, `cart-390.png`, `checkout-1440.png`, `checkout-390.png`, `confirmation-1440.png`, `confirmation-390.png`, `tracking-1440.png`, `tracking-390.png`, `account-login-1440.png`, `account-login-390.png`, `account-profile-1440.png`, `account-profile-390.png`, `account-orders-1440.png`, `account-orders-390.png`, `account-addresses-1440.png`, `account-addresses-390.png`, `account-wishlist-1440.png`, `account-wishlist-390.png`, `design-system-1440.png`, `design-system-390.png`.
+- Captures : `docs/screens/home-1440.png`, `home-390.png`, `shop-1440.png`, `shop-390.png`, `product-1440.png`, `product-390.png`, `reviews-1440.png`, `reviews-390.png`, `cart-1440.png`, `cart-390.png`, `checkout-1440.png`, `checkout-390.png`, `confirmation-1440.png`, `confirmation-390.png`, `tracking-1440.png`, `tracking-390.png`, `contact-1440.png`, `contact-390.png`, `histoire-1440.png`, `histoire-390.png`, `account-login-1440.png`, `account-login-390.png`, `account-profile-1440.png`, `account-profile-390.png`, `account-orders-1440.png`, `account-orders-390.png`, `account-addresses-1440.png`, `account-addresses-390.png`, `account-wishlist-1440.png`, `account-wishlist-390.png`, `design-system-1440.png`, `design-system-390.png`.
 
 ### Console de gestion
 
 La console reprend les mêmes tokens (`apps/admin/src/styles/index.css`) et les mêmes composants CSS, avec une densité de table adaptée au travail quotidien : `panel`, `table`, `badge`, `btn`, `field-*`. Elle ne charge ni la scène 3D ni les polices de la boutique au-delà de Marcellus et Jost.
 
-- Routes : `/connexion`, `/` (tableau de bord), `/commandes`, `/commandes/:number`, `/produits`, `/produits/nouveau`, `/produits/:id`, `/stock`, `/clients`, `/clients/:id`, `/coupons`, `/pages`, `/parametres`, `/journal`.
+- Routes : `/connexion`, `/` (tableau de bord), `/commandes`, `/commandes/:number`, `/produits`, `/produits/nouveau`, `/produits/:id`, `/stock`, `/clients`, `/clients/:id`, `/messages`, `/avis`, `/coupons`, `/pages`, `/parametres`, `/journal`.
 - Les actions sont masquées à partir du tableau `permissions` renvoyé par `GET /admin/me`, jamais à partir du nom du rôle.
-- Captures : `docs/screens/admin-login-1440.png`, `admin-login-390.png`, `admin-dashboard-1440.png`, `admin-dashboard-390.png`, `admin-orders-1440.png`, `admin-orders-390.png`, `admin-order-detail-1440.png`, `admin-order-detail-390.png`, `admin-stock-1440.png`, `admin-stock-390.png`, `admin-products-1440.png`, `admin-product-editor-1440.png`, `admin-customers-1440.png`, `admin-customer-detail-1440.png`, `admin-coupons-1440.png`, `admin-pages-1440.png`, `admin-settings-1440.png`, `admin-audit-1440.png`.
+- Captures : `docs/screens/admin-login-1440.png`, `admin-login-390.png`, `admin-dashboard-1440.png`, `admin-dashboard-390.png`, `admin-orders-1440.png`, `admin-orders-390.png`, `admin-order-detail-1440.png`, `admin-order-detail-390.png`, `admin-stock-1440.png`, `admin-stock-390.png`, `admin-products-1440.png`, `admin-product-editor-1440.png`, `admin-customers-1440.png`, `admin-customer-detail-1440.png`, `admin-messages-1440.png`, `admin-reviews-1440.png`, `admin-coupons-1440.png`, `admin-pages-1440.png`, `admin-settings-1440.png`, `admin-audit-1440.png`.
 - Régénération : `cd apps/web && SCREEN_FLOW=admin node scripts/screens.mjs` (API sur 8000, console sur 5174, base seedée).
 
 ## Tests et qualité
 
-| Suite | Commande | État phase 4 |
+| Suite | Commande | État phase 5 |
 | --- | --- | --- |
-| API (Pest) | `cd apps/api && php artisan test` | 143 tests verts (661 assertions) |
+| API (Pest) | `cd apps/api && php artisan test` | 163 tests verts (743 assertions) |
 | API style | `vendor/bin/pint --test` | vert |
 | API statique | `vendor/bin/phpstan analyse` | niveau 6, vert |
-| Web (Vitest) | `cd apps/web && npm run test:run` | 97 tests verts (20 fichiers) |
+| Web (Vitest) | `cd apps/web && npm run test:run` | 106 tests verts (23 fichiers) |
 | Web lint | `npm run lint` | vert |
 | Web types | `npm run typecheck` | vert |
 | Web build | `npm run build` | vert |
 | Web smoke (routes, console, débordement) | `npm run test:smoke` | 22/22 vert |
 | Parcours d'achat | `node scripts/journey.mjs` | 20/20 vert (360 et 1440) |
-| Console (Vitest) | `cd apps/admin && npm run test:run` | 8 tests verts (2 fichiers) |
+| Console (Vitest) | `cd apps/admin && npm run test:run` | 12 tests verts (4 fichiers) |
 | Console lint / types / build | `npm run lint`, `npm run typecheck`, `npm run build` | vert |
-| Audit back-office (droits, commande, 12 routes) | `node scripts/audit-admin.mjs` | 31/31 vert (1440 et 390) |
-| Contrat OpenAPI | `node scripts/check-openapi.mjs` | 53 chemins, 81 schémas, références valides |
+| Audit back-office (droits, commande, contenus, messages, avis, 14 routes) | `node scripts/audit-admin.mjs` | vert (1440 et 390) |
+| Contrat OpenAPI | `node scripts/check-openapi.mjs` | 60 chemins, 93 schémas, références valides |
 
 La CI GitHub Actions (`.github/workflows/ci.yml`) rejoue ces étapes sur PHP 8.3 et Node 24, valide `docker compose config` et vérifie les préfixes de commit conventionnels sur les pull requests.
 
@@ -220,10 +226,10 @@ La CI GitHub Actions (`.github/workflows/ci.yml`) rejoue ces étapes sur PHP 8.3
 - La facture PDF n'est disponible que pour une commande `delivered` ; ses mentions légales restent `[à compléter]`.
 - Le parcours d'achat consomme du stock : relancer `php artisan migrate:fresh --seed` avant de rejouer `scripts/journey.mjs` ou `scripts/screens.mjs`.
 - Les frais de livraison par ville et le coupon `LUPHERA10` viennent de `CommerceSeeder` : ce sont des valeurs provisoires, à remplacer par le contrat transporteur et les conditions réelles.
-- Les pages éditoriales sont éditables dans la console mais la boutique lit encore ses écrans d'attente pour `/livraison` et `/mentions-legales` ; le branchement arrive avec les contenus définitifs. Les deux pages seedées sont des brouillons `[à compléter]`.
-- Les messages de contact et les avis clients n'ont pas encore de table ni d'écran, alors que les permissions `messages.view` et `reviews.moderate` existent déjà.
+- Les pages éditoriales sont lues par la boutique dès leur publication ; les trois pages seedées (`histoire`, `livraison-et-retours`, `mentions-legales`) restent des brouillons `[à compléter]` tant que la maison n'a pas validé ses textes. La capture `histoire-*.png` publie la page depuis l'API pour montrer le rendu réel.
+- Le formulaire de contact et les avis stockent en base uniquement : aucun transport e-mail n'est configuré, la boîte de réception de la console fait foi. Les avis et messages de démonstration sont préfixés `[démo]`.
 - La console n'a pas de service Docker dédié : elle tourne en `npm run dev` sur 5174. Le service sera ajouté avec la phase de déploiement, faute de Docker sur le poste actuel.
-- Le bundle de la console fait 623 kB (182 kB gzip) sans découpage : l'éditeur produit concentre l'essentiel.
+- Le bundle de la console fait 638 kB (185 kB gzip) sans découpage : l'éditeur produit concentre l'essentiel.
 
 ## Feuille de route
 
@@ -234,9 +240,9 @@ La CI GitHub Actions (`.github/workflows/ci.yml`) rejoue ces étapes sur PHP 8.3
 | 2 | Panier serveur, coupons, livraison, commande idempotente, stock | livrée (frais et coupon de démonstration) |
 | 3 | Compte client (session Sanctum), adresses, favoris, historique, facture | livrée |
 | 4 | Administration : commandes, catalogue, stock, clients, coupons, paramètres, pages, audit | livrée (rôles et comptes de démonstration) |
-| 5 | Contenus, pages maison, livraison, contact | à venir |
+| 5 | Contenus et relation client : pages CMS lues par la boutique, contact, avis modérés, bandeau d'annonce | livrée |
 | 6 | Scène 3D et animations avancées | à venir |
-| 7 | Arabe, RTL, SEO, observabilité, durcissement | à venir |
+| 7 | Intelligence (conseiller, quiz, recherche sémantique), arabe, RTL, SEO, notifications, observabilité, durcissement | à venir |
 
 ## Points à fournir par le client
 
