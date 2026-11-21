@@ -31,6 +31,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'settings.manage',
             'reviews.moderate',
             'messages.view',
+            'messages.manage',
             'audit.view',
             'ai.use',
         ];
@@ -52,13 +53,13 @@ class RolesAndPermissionsSeeder extends Seeder
             'catalog.view', 'catalog.manage',
             'orders.view', 'orders.manage', 'orders.confirm',
             'customers.view', 'marketing.manage', 'content.manage',
-            'reviews.moderate', 'messages.view', 'ai.use',
+            'reviews.moderate', 'messages.view', 'messages.manage', 'ai.use',
         ]);
 
         $support->syncPermissions([
             'catalog.view',
             'orders.view', 'orders.confirm',
-            'customers.view', 'messages.view', 'reviews.moderate',
+            'customers.view', 'messages.view', 'messages.manage', 'reviews.moderate',
         ]);
 
         $admin->syncPermissions($permissions);

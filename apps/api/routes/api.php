@@ -7,20 +7,24 @@ use App\Http\Controllers\Api\V1\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Api\V1\Admin\CouponController as AdminCouponController;
 use App\Http\Controllers\Api\V1\Admin\CustomerController as AdminCustomerController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\V1\Admin\MessageController as AdminMessageController;
 use App\Http\Controllers\Api\V1\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Api\V1\Admin\PageController as AdminPageController;
 use App\Http\Controllers\Api\V1\Admin\ProductController as AdminProductController;
+use App\Http\Controllers\Api\V1\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Api\V1\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\Api\V1\Admin\StockController as AdminStockController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BundleController;
 use App\Http\Controllers\Api\V1\CartController;
+use App\Http\Controllers\Api\V1\ContactController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvoiceController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PageController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\SettingsController;
 use App\Http\Controllers\Api\V1\ShippingController;
 use App\Http\Controllers\Api\V1\WishlistController;
@@ -48,10 +52,15 @@ Route::get('/settings/public', SettingsController::class)->name('api.settings.pu
 Route::get('/pages', [PageController::class, 'index'])->name('api.pages.index');
 Route::get('/pages/{slug}', [PageController::class, 'show'])->name('api.pages.show');
 
+Route::post('/contact', [ContactController::class, 'store'])
+    ->middleware('throttle:public-forms')
+    ->name('api.contact.store');
+
 Route::middleware('throttle:api')->group(function (): void {
     Route::get('/products', [ProductController::class, 'index'])->name('api.products.index');
     Route::get('/products/{slug}', [ProductController::class, 'show'])->name('api.products.show');
     Route::get('/products/{slug}/related', [ProductController::class, 'related'])->name('api.products.related');
+    Route::get('/products/{slug}/reviews', [ReviewController::class, 'index'])->name('api.products.reviews.index');
     Route::get('/bundles', [BundleController::class, 'index'])->name('api.bundles.index');
 
     Route::get('/shipping/cities', [ShippingController::class, 'cities'])->name('api.shipping.cities');
@@ -95,6 +104,10 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
     Route::get('/me/wishlist', [WishlistController::class, 'index'])->name('api.me.wishlist.index');
     Route::post('/me/wishlist', [WishlistController::class, 'store'])->name('api.me.wishlist.store');
     Route::delete('/me/wishlist/{product}', [WishlistController::class, 'destroy'])->name('api.me.wishlist.destroy');
+
+    Route::post('/me/reviews', [ReviewController::class, 'store'])
+        ->middleware('throttle:public-forms')
+        ->name('api.me.reviews.store');
 });
 
 /*
@@ -187,6 +200,20 @@ Route::prefix('admin')->name('api.admin.')->group(function (): void {
             Route::post('/pages', [AdminPageController::class, 'store'])->name('pages.store');
             Route::patch('/pages/{page}', [AdminPageController::class, 'update'])->name('pages.update');
             Route::delete('/pages/{page}', [AdminPageController::class, 'destroy'])->name('pages.destroy');
+        });
+
+        Route::middleware('permission:messages.view')->group(function (): void {
+            Route::get('/messages', [AdminMessageController::class, 'index'])->name('messages.index');
+            Route::get('/messages/{message}', [AdminMessageController::class, 'show'])->name('messages.show');
+        });
+
+        Route::middleware('permission:messages.manage')->group(function (): void {
+            Route::patch('/messages/{message}', [AdminMessageController::class, 'update'])->name('messages.update');
+        });
+
+        Route::middleware('permission:reviews.moderate')->group(function (): void {
+            Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews.index');
+            Route::patch('/reviews/{review}', [AdminReviewController::class, 'update'])->name('reviews.update');
         });
 
         Route::middleware('permission:audit.view')->group(function (): void {
