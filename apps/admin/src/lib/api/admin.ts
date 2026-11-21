@@ -1,6 +1,9 @@
 import { apiDownload, apiRequest, apiRequestWithMeta, apiUpload } from './client';
 import type {
   AuditLogRow,
+  ContactMessageDetail,
+  ContactMessageStatus,
+  ContactMessageSummary,
   Coupon,
   CustomerDetail,
   CustomerRow,
@@ -14,6 +17,8 @@ import type {
   PaginationMeta,
   ProductDetail,
   ProductSummary,
+  ReviewRow,
+  ReviewStatus,
   ShopSettings,
   Staff,
   StockMovement,
@@ -458,4 +463,71 @@ export async function fetchAuditLogs(
 
 export function fetchAuditActions(): Promise<string[]> {
   return apiRequest<string[]>('/admin/audit-logs/actions');
+}
+
+/* --------------------------------------------------------------- messages */
+
+export interface MessageFilters {
+  status?: ContactMessageStatus;
+  q?: string;
+  page?: number;
+}
+
+export interface MessagePage extends Paginated<ContactMessageSummary> {
+  newCount: number;
+}
+
+export async function fetchMessages(filters: MessageFilters): Promise<MessagePage> {
+  const response = await apiRequestWithMeta<ContactMessageSummary[]>(
+    `/admin/messages${query({ ...filters })}`,
+  );
+
+  return {
+    data: response.data,
+    meta: metaToPagination(response.meta),
+    newCount: Number(response.meta.new_count ?? 0),
+  };
+}
+
+export function fetchMessage(id: number): Promise<ContactMessageDetail> {
+  return apiRequest<ContactMessageDetail>(`/admin/messages/${id}`);
+}
+
+export function updateMessageStatus(
+  id: number,
+  status: ContactMessageStatus,
+): Promise<ContactMessageSummary> {
+  return apiRequest<ContactMessageSummary>(`/admin/messages/${id}`, {
+    method: 'PATCH',
+    body: { status },
+  });
+}
+
+/* ---------------------------------------------------------------- reviews */
+
+export interface ReviewFilters {
+  status?: ReviewStatus;
+  q?: string;
+  page?: number;
+}
+
+export interface ReviewPage extends Paginated<ReviewRow> {
+  pendingCount: number;
+}
+
+export async function fetchReviews(filters: ReviewFilters): Promise<ReviewPage> {
+  const response = await apiRequestWithMeta<ReviewRow[]>(`/admin/reviews${query({ ...filters })}`);
+
+  return {
+    data: response.data,
+    meta: metaToPagination(response.meta),
+    pendingCount: Number(response.meta.pending_count ?? 0),
+  };
+}
+
+export function moderateReview(
+  id: number,
+  input: { status: Exclude<ReviewStatus, 'pending'>; moderation_note?: string | null },
+): Promise<ReviewRow> {
+  return apiRequest<ReviewRow>(`/admin/reviews/${id}`, { method: 'PATCH', body: input });
 }

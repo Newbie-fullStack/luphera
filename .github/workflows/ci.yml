@@ -96,6 +96,47 @@ jobs:
       - name: Build
         run: npm run build
 
+  admin:
+    name: Console (Node 24)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/admin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm install --include=optional --no-audit --no-fund
+
+      - name: Ensure native bindings
+        run: |
+          ROLLDOWN=$(node -p "require('./package-lock.json').packages['node_modules/rolldown'].version")
+          LIGHTNING=$(node -p "require('./package-lock.json').packages['node_modules/lightningcss'].version")
+          OXIDE=$(node -p "require('./package-lock.json').packages['node_modules/@tailwindcss/oxide'].version")
+          npm install --no-save --no-audit --no-fund \
+            "@rolldown/binding-linux-x64-gnu@$ROLLDOWN" \
+            "lightningcss-linux-x64-gnu@$LIGHTNING" \
+            "@tailwindcss/oxide-linux-x64-gnu@$OXIDE"
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:run
+
+      - name: Build
+        run: npm run build
+
   compose:
     name: Docker Compose config
     runs-on: ubuntu-latest

@@ -9,12 +9,14 @@ import { CouponsPage } from '@/pages/CouponsPage';
 import { CustomerDetailPage } from '@/pages/CustomerDetailPage';
 import { CustomersPage } from '@/pages/CustomersPage';
 import { DashboardPage } from '@/pages/DashboardPage';
+import { MessagesPage } from '@/pages/MessagesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { OrderDetailPage } from '@/pages/OrderDetailPage';
 import { OrdersPage } from '@/pages/OrdersPage';
 import { PagesPage } from '@/pages/PagesPage';
 import { ProductEditorPage } from '@/pages/ProductEditorPage';
 import { ProductsPage } from '@/pages/ProductsPage';
+import { ReviewsPage } from '@/pages/ReviewsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { StockPage } from '@/pages/StockPage';
 
@@ -98,6 +100,24 @@ export function App() {
             element={
               <RequirePermission permission="customers.view">
                 <CustomerDetailPage />
+              </RequirePermission>
+            }
+          />
+
+          <Route
+            path="messages"
+            element={
+              <RequirePermission permission="messages.view">
+                <MessagesPage />
+              </RequirePermission>
+            }
+          />
+
+          <Route
+            path="avis"
+            element={
+              <RequirePermission permission="reviews.moderate">
+                <ReviewsPage />
               </RequirePermission>
             }
           />

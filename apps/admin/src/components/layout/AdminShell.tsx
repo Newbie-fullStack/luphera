@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Boxes,
   FileText,
+  Inbox,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -10,6 +11,7 @@ import {
   ScrollText,
   Settings,
   ShoppingBag,
+  Star,
   TicketPercent,
   Users,
   X,
@@ -58,6 +60,8 @@ const GROUPS: NavGroup[] = [
     labelKey: 'nav.groupRelation',
     items: [
       { to: '/clients', labelKey: 'nav.customers', permission: 'customers.view', icon: Users },
+      { to: '/messages', labelKey: 'nav.messages', permission: 'messages.view', icon: Inbox },
+      { to: '/avis', labelKey: 'nav.reviews', permission: 'reviews.moderate', icon: Star },
       { to: '/coupons', labelKey: 'nav.coupons', permission: 'marketing.manage', icon: TicketPercent },
       { to: '/pages', labelKey: 'nav.pages', permission: 'content.manage', icon: FileText },
     ],

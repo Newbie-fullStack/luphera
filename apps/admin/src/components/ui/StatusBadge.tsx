@@ -32,13 +32,28 @@ const SEGMENT_TONES: Record<string, string> = {
   inactive: 'badge badge-warn',
 };
 
-type Kind = 'order' | 'product' | 'stock' | 'segment' | 'neutral';
+const MESSAGE_TONES: Record<string, string> = {
+  new: 'badge badge-pending',
+  read: 'badge badge-warn',
+  replied: 'badge badge-ok',
+  archived: 'badge badge-muted',
+};
+
+const REVIEW_TONES: Record<string, string> = {
+  pending: 'badge badge-warn',
+  approved: 'badge badge-ok',
+  rejected: 'badge badge-danger',
+};
+
+type Kind = 'order' | 'product' | 'stock' | 'segment' | 'message' | 'review' | 'neutral';
 
 const TONES: Record<Kind, Record<string, string>> = {
   order: ORDER_TONES,
   product: PRODUCT_TONES,
   stock: STOCK_TONES,
   segment: SEGMENT_TONES,
+  message: MESSAGE_TONES,
+  review: REVIEW_TONES,
   neutral: {},
 };
 
@@ -47,6 +62,8 @@ const LABEL_PREFIX: Record<Kind, string> = {
   product: 'products.',
   stock: 'stock.',
   segment: 'customers.',
+  message: 'messages.status.',
+  review: 'reviews.status.',
   neutral: '',
 };
 

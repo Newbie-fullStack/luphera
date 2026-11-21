@@ -309,3 +309,41 @@ export interface AuditLogRow {
   author: string | null;
   at: string;
 }
+
+export type ContactMessageStatus = 'new' | 'read' | 'replied' | 'archived';
+
+export interface ContactMessageSummary {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  subject: string;
+  status: ContactMessageStatus;
+  excerpt: string;
+  ip: string | null;
+  created_at: string | null;
+  read_at: string | null;
+  replied_at: string | null;
+}
+
+export interface ContactMessageDetail extends ContactMessageSummary {
+  body: string;
+  user_agent: string | null;
+  customer: { id: string; name: string; phone: string } | null;
+}
+
+export type ReviewStatus = 'pending' | 'approved' | 'rejected';
+
+export interface ReviewRow {
+  id: number;
+  rating: number;
+  title: string | null;
+  body: string;
+  author: string;
+  status: ReviewStatus;
+  product: { slug: string; name: string } | null;
+  moderator: string | null;
+  moderation_note: string | null;
+  moderated_at: string | null;
+  created_at: string | null;
+}

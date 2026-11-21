@@ -65,6 +65,8 @@
     "customers": "Clients",
     "coupons": "Coupons",
     "pages": "Pages",
+    "messages": "Messages",
+    "reviews": "Avis",
     "settings": "Paramètres",
     "audit": "Journal",
     "groupPilotage": "Pilotage",
@@ -310,6 +312,53 @@
     "updated": "Page mise à jour.",
     "deleteConfirm": "Supprimer cette page ?",
     "noPages": "Aucune page."
+  },
+  "messages": {
+    "title": "Messages",
+    "subtitle": "Les demandes envoyées depuis le formulaire de contact de la boutique.",
+    "subject": "Sujet",
+    "statusLabel": "Statut",
+    "customer": "Client",
+    "open": "Ouvrir",
+    "empty": "Aucun message.",
+    "searchPlaceholder": "Nom, e-mail, téléphone ou sujet",
+    "newCount": "{{count}} nouveau(x)",
+    "updated": "Statut du message mis à jour.",
+    "status": {
+      "new": "Nouveau",
+      "read": "Lu",
+      "replied": "Répondu",
+      "archived": "Archivé"
+    },
+    "mark": {
+      "new": "Marquer nouveau",
+      "read": "Marquer lu",
+      "replied": "Marquer répondu",
+      "archived": "Archiver"
+    }
+  },
+  "reviews": {
+    "title": "Avis",
+    "subtitle": "Un avis n'est publié sur la boutique qu'après validation.",
+    "product": "Produit",
+    "author": "Auteur",
+    "rating": "Note",
+    "moderate": "Modérer",
+    "approve": "Publier",
+    "reject": "Rejeter",
+    "note": "Note interne",
+    "notePlaceholder": "Motif du refus ou commentaire de modération",
+    "moderatedBy": "Modéré par {{name}}",
+    "updated": "Avis mis à jour.",
+    "empty": "Aucun avis.",
+    "searchPlaceholder": "Auteur, titre ou contenu",
+    "pendingCount": "{{count}} en attente",
+    "starsLabel": "{{rating}} étoiles sur 5",
+    "status": {
+      "pending": "En attente",
+      "approved": "Publié",
+      "rejected": "Rejeté"
+    }
   },
   "audit": {
     "title": "Journal",
